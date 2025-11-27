@@ -1,0 +1,158 @@
+name: Build and Release
+
+on:
+    push:
+        tags:
+            - "v*"
+
+env:
+    REGISTRY: ghcr.io
+    IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+    # Job 1: Build Docker Image (Linux Server)
+    build-docker:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            packages: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v3
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to the Container registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Extract metadata (tags, labels) for Docker
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+                  tags: |
+                      type=semver,pattern={{version}}
+                      type=semver,pattern={{major}}.{{minor}}
+                      type=raw,value=latest
+
+            - name: Build and push Docker image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  push: true
+                  tags: ${{ steps.meta.outputs.tags }}
+                  labels: ${{ steps.meta.outputs.labels }}
+                  platforms: linux/amd64,linux/arm64
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+                  build-args: |
+                      VITE_APP_NAME=${{ env.VITE_APP_NAME }}
+                      VITE_APP_DESCRIPTION=${{ env.VITE_APP_DESCRIPTION }}
+
+    # Job 2: Build Windows Desktop App
+    build-windows:
+        runs-on: windows-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Install Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v3
+              with:
+                  version: 9
+
+            - name: Install Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: Build Frontend
+              run: |
+                  pnpm install --frozen-lockfile
+                  Copy-Item build.env .env.production
+                  pnpm build
+
+            - name: Install Backend Dependencies
+              run: |
+                  pip install uv
+                  uv pip install --system -r pyproject.toml
+                  # 单独安装 PyInstaller (如果是开发依赖)
+                  pip install pyinstaller
+
+            - name: Generate OpenAPI JSON
+              env:
+                  PYTHONUTF8: 1
+              run: |
+                  $env:PYTHONPATH="."
+                  python scripts/generate-openapi.py
+
+            - name: Build Windows EXE
+              run: |
+                  pyinstaller build.spec --clean
+
+            - name: Zip Artifacts
+              run: |
+                  Compress-Archive -Path dist/NekroVStack -DestinationPath NekroVStack-Windows-x64.zip
+
+            - name: Upload Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: windows-build
+                  path: NekroVStack-Windows-x64.zip
+
+    # Job 3: Create Release
+    release:
+        needs: [build-docker, build-windows]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Download Windows Artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: windows-build
+                  path: release-assets
+
+            - name: Prepare Docker Assets
+              run: |
+                  mkdir -p release-assets
+                  REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+                  # 将默认的 nekroai/nekro-vstack-template 替换为当前构建的仓库名
+                  sed "s|ghcr.io/nekroai/nekro-vstack-template:latest|${{ env.REGISTRY }}/${REPO_LOWER}:latest|g" deploy/docker-compose.yml > release-assets/docker-compose.yml
+
+                  echo "## 部署说明" > release-assets/README.txt
+                  echo "### Docker 部署" >> release-assets/README.txt
+                  echo "1. 确保已安装 Docker 和 Docker Compose。" >> release-assets/README.txt
+                  echo "2. 运行 'docker-compose up -d' 启动服务。" >> release-assets/README.txt
+                  echo "" >> release-assets/README.txt
+                  echo "### Windows 桌面版" >> release-assets/README.txt
+                  echo "1. 解压 NekroVStack-Windows-x64.zip" >> release-assets/README.txt
+                  echo "2. 双击运行 NekroVStack.exe" >> release-assets/README.txt
+                  echo "3. 应用将自动打开浏览器访问 http://localhost:9871" >> release-assets/README.txt
+
+            - name: Create Release
+              uses: softprops/action-gh-release@v1
+              with:
+                  files: |
+                      release-assets/*
+                  generate_release_notes: true
+                  draft: false
+                  prerelease: false

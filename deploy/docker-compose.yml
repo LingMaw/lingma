@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  app:
+    # 默认使用 NekroAI 官方镜像
+    # 如果您 Fork 了本项目，请将下方镜像地址修改为您自己的 GitHub 用户名和仓库名
+    # 例如: ghcr.io/your-username/nekro-vstack-template:latest
+    image: ghcr.io/nekroai/nekro-vstack-template:latest
+    container_name: nekro-vstack
+    restart: unless-stopped
+    ports:
+      - "9871:9871"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - ENVIRONMENT=production
+      - SECRET_KEY=${SECRET_KEY:-changeme}
+      # 如果需要 PostgreSQL
+      # - DATABASE_URL=postgresql://user:pass@db:5432/dbname
+
+    # 如果使用 SQLite，上面的配置就够了
+    # 如果使用 Postgres，取消下面的注释
+    # depends_on:
+    #   - db
+
+  # db:
+  #   image: postgres:15-alpine
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_USER: user
+  #     POSTGRES_PASSWORD: pass
+  #     POSTGRES_DB: dbname
+# volumes:
+#   postgres_data:
+
