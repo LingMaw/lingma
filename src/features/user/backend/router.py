@@ -15,7 +15,7 @@ from src.backend.core.security import (
 )
 
 from .models import DEFAULT_USER_SETTINGS, User, UserSetting
-from .schemas import LoginRequest, LoginResponse, UserResponse
+from .schemas import LoginRequest, LoginResponse, RegisterRequest, UserResponse
 
 router = APIRouter()
 
@@ -60,6 +60,8 @@ async def login(data: LoginRequest):
             email=user.email,
             nickname=user.nickname or user.username,
             role=user.role,
+            avatar=user.avatar,
+            created_at=user.created_at,
         ),
     )
 
@@ -90,7 +92,32 @@ async def get_current_user(user_id: CurrentUserId):
         email=user.email,
         nickname=user.nickname or user.username,
         role=user.role,
+        avatar=user.avatar,
+        created_at=user.created_at,
     )
+
+
+@router.get("/{user_id}/avatar")
+async def get_user_avatar(user_id: int):
+    """
+    获取指定用户的头像URL
+
+    Args:
+        user_id: 用户ID
+
+    Returns:
+        dict: 包含用户头像URL的字典
+
+    Raises:
+        AuthenticationError: 用户不存在或已被禁用
+    """
+    user = await User.filter(id=user_id, is_active=True).first()
+
+    if not user:
+        logger.warning(f"获取用户头像失败：用户不存在或已禁用 - ID: {user_id}")
+        raise AuthenticationError("用户不存在或已被禁用")
+
+    return {"avatar": user.avatar}
 
 
 @router.post("/logout")
@@ -105,12 +132,12 @@ async def logout():
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
-async def register(data: LoginRequest):
+async def register(data: RegisterRequest):
     """
     用户注册
 
     Args:
-        data: 注册数据（用户名、密码）
+        data: 注册数据（用户名、密码、可选邮箱）
 
     Returns:
         UserResponse: 新创建的用户信息
@@ -129,7 +156,7 @@ async def register(data: LoginRequest):
     user = await User.create(
         username=data.username,
         hashed_password=hashed_password,
-        email=f"{data.username}@example.com",  # 临时邮箱，实际项目应要求用户提供
+        email=data.email or f"{data.username}@example.com",  # 如果未提供邮箱，则生成临时邮箱
         nickname=data.username,
         role="user",
     )
@@ -146,6 +173,8 @@ async def register(data: LoginRequest):
         email=user.email,
         nickname=user.nickname or user.username,
         role=user.role,
+        avatar=user.avatar,
+        created_at=user.created_at,
     )
 
 
@@ -247,3 +276,77 @@ async def reset_user_settings(user_id: CurrentUserId):
     
     logger.info(f"用户设置已重置 (用户ID: {user_id})")
     return DEFAULT_USER_SETTINGS
+
+
+@router.put("/profile", response_model=UserResponse)
+async def update_user_profile(data: dict, user_id: CurrentUserId):
+    """
+    更新当前用户的基本信息（昵称等）
+
+    Args:
+        data: 包含要更新的用户信息
+        user_id: 当前用户ID（从JWT中解析）
+
+    Returns:
+        UserResponse: 更新后的用户信息
+    """
+    user = await User.get(id=user_id)
+    
+    # 更新用户信息
+    if "nickname" in data:
+        user.nickname = data["nickname"]
+    
+    if "email" in data:
+        user.email = data["email"]
+        
+    if "avatar" in data:
+        user.avatar = data["avatar"]
+    
+    await user.save()
+    
+    logger.info(f"用户资料已更新: {user.username} (ID: {user.id})")
+    return UserResponse(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        nickname=user.nickname or user.username,
+        role=user.role,
+        avatar=user.avatar,
+        created_at=user.created_at,
+    )
+
+
+@router.put("/password")
+async def update_user_password(data: dict, user_id: CurrentUserId):
+    """
+    更新当前用户密码
+
+    Args:
+        data: 包含旧密码和新密码
+        user_id: 当前用户ID（从JWT中解析）
+
+    Returns:
+        dict: 更新结果
+    """
+    user = await User.get(id=user_id)
+    
+    # 验证旧密码
+    old_password = data.get("old_password")
+    new_password = data.get("new_password")
+    
+    if not old_password or not new_password:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=422, detail="旧密码和新密码都必须提供")
+    
+    if not verify_password(old_password, user.hashed_password):
+        raise AuthenticationError("旧密码不正确")
+    
+    if len(new_password) < 6:
+        raise AuthenticationError("新密码长度至少为6位")
+    
+    # 更新密码
+    user.hashed_password = get_password_hash(new_password)
+    await user.save()
+    
+    logger.info(f"用户密码已更新: {user.username} (ID: {user.id})")
+    return {"success": True, "message": "密码更新成功"}

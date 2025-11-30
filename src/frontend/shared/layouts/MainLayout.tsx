@@ -9,9 +9,9 @@ import {
   Palette as PaletteIcon,
   ReceiptLong as LogsIcon,
   BorderColor as BorderColorIcon,
-  Settings as SettingsIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material'
 import {
   AppBar,
@@ -51,7 +51,7 @@ const menuItems = [
   { path: '/monitor/logs', text: '实时日志', icon: <LogsIcon /> },
   { path: '/novel_generator', text: 'AI小说生成器', icon: <BorderColorIcon /> },
   { path: '/novel_project', text: '小说项目管理', icon: <BorderColorIcon /> },
-  { path: '/settings', text: '设置', icon: <SettingsIcon /> },
+  { path: '/profile', text: '个人资料', icon: <PersonIcon /> },
 ]
 
 export default function MainLayout() {
@@ -218,18 +218,31 @@ export default function MainLayout() {
             gap: isCollapsed ? 0 : 1.5,
           }}
         >
-          <Avatar
-            sx={{
-              width: isCollapsed ? 32 : 40,
-              height: isCollapsed ? 32 : 40,
-              bgcolor: 'primary.main',
-              fontSize: isCollapsed ? '0.75rem' : '1rem',
-              fontWeight: 600,
-              minWidth: isCollapsed ? 32 : 40,
-            }}
-          >
-            {user?.username?.slice(0, 2).toUpperCase() || 'USER'}
-          </Avatar>
+          {user?.avatar ? (
+            <Avatar
+              src={user.avatar}
+              sx={{
+                width: isCollapsed ? 32 : 40,
+                height: isCollapsed ? 32 : 40,
+                fontSize: isCollapsed ? '0.75rem' : '1rem',
+                fontWeight: 600,
+                minWidth: isCollapsed ? 32 : 40,
+              }}
+            />
+          ) : (
+            <Avatar
+              sx={{
+                width: isCollapsed ? 32 : 40,
+                height: isCollapsed ? 32 : 40,
+                bgcolor: 'primary.main',
+                fontSize: isCollapsed ? '0.75rem' : '1rem',
+                fontWeight: 600,
+                minWidth: isCollapsed ? 32 : 40,
+              }}
+            >
+              {user?.username?.slice(0, 2).toUpperCase() || 'USER'}
+            </Avatar>
+          )}
           {!isCollapsed && (
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography variant="subtitle2" noWrap fontWeight={600}>

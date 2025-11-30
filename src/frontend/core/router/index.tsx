@@ -8,7 +8,7 @@ import NovelGeneratorPage from '@/features/novel_generator/frontend/pages/NovelG
 import NovelProjectListPage from '@/features/novel_project/frontend/pages/ProjectListPage'
 import NovelProjectDetailPage from '@/features/novel_project/frontend/pages/ProjectDetailPage'
 import NovelProjectViewPage from '@/features/novel_project/frontend/pages/ProjectViewPage'
-import SettingsPage from '@/features/user/frontend/pages/SettingsPage'
+import ProfilePage from '@/features/user/frontend/pages/ProfilePage'
 
 import ProtectedRoute from './ProtectedRoute'
 
@@ -24,7 +24,7 @@ const router = createHashRouter([
     children: [
       { path: '/', element: <Navigate to="/dashboard" replace /> },
       { path: '/dashboard', element: <DashboardPage /> },
-      { path: '/settings', element: <SettingsPage /> },
+      { path: '/profile', element: <ProfilePage /> },
       { path: '/novel_generator', element: <NovelGeneratorPage /> },
       { path: '/monitor/logs', element: <LiveLogsPage /> },
       { path: '/novel_project', element: <NovelProjectListPage /> },

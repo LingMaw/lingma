@@ -77,4 +77,22 @@ export const userAPI = {
     const response = await httpClient.post<Record<string, string>>('/auth/settings/reset')
     return response.data
   },
+
+  /**
+   * 更新用户资料
+   */
+  async updateProfile(data: Partial<User>): Promise<User> {
+    const response = await httpClient.put<User>('/auth/profile', data)
+    return response.data
+  },
+
+  /**
+   * 更新用户密码
+   */
+  async updatePassword(oldPassword: string, newPassword: string): Promise<void> {
+    await httpClient.put('/auth/password', { 
+      old_password: oldPassword, 
+      new_password: newPassword 
+    })
+  },
 }

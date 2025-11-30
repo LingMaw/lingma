@@ -17,6 +17,7 @@ class User(Model):
     nickname = fields.CharField(max_length=50, null=True, description="昵称")
     role = fields.CharField(max_length=20, default="user", description="角色")
     is_active = fields.BooleanField(default=True, description="是否激活")
+    avatar = fields.CharField(max_length=255, null=True, description="头像URL")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
     updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
 
@@ -52,6 +53,6 @@ DEFAULT_USER_SETTINGS = {
     "api_key": "",
     "api_base": "",
     "api_model": "gpt-3.5-turbo",
-    "api_max_tokens": "1000",
+    "api_max_tokens": "16000",
     "auto_save": "true",
 }

@@ -21,6 +21,8 @@ export interface User {
   nickname?: string
   /** 角色 */
   role?: string
+  /** 头像URL */
+  avatar?: string
   /** 是否激活 */
   is_active?: boolean
   /** 创建时间 */
@@ -44,7 +46,6 @@ export interface RegisterRequest {
   username: string
   password: string
   email?: string
-  nickname?: string
 }
 
 /**

@@ -2,7 +2,9 @@
 认证相关的Pydantic模型
 定义请求和响应的数据结构
 """
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import BaseModel, HttpUrl
 
 
 class LoginRequest(BaseModel):
@@ -10,6 +12,14 @@ class LoginRequest(BaseModel):
 
     username: str
     password: str
+
+
+class RegisterRequest(BaseModel):
+    """注册请求"""
+
+    username: str
+    password: str
+    email: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -20,6 +30,8 @@ class UserResponse(BaseModel):
     email: str | None = None
     nickname: str | None = None
     role: str = "user"
+    avatar: HttpUrl | None = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
