@@ -192,21 +192,25 @@ export default function AiSettingsSection({
                             if (typeof option === 'string') {
                                 return option;
                             }
+                            // 如果 name 和 url 相同(用户自定义输入),只显示一次
+                            if (option.name === option.url) {
+                                return option.url;
+                            }
                             return `${option.name} (${option.url})`;
                         }}
                         value={
-                            OPENAI_COMPAT_PROVIDERS.find(provider => provider.url === aiSettings.api_base) ||
+                            OPENAI_COMPAT_PROVIDERS.find(provider => provider.url === aiSettings.api_base) ??
                             (aiSettings.api_base ? { name: aiSettings.api_base, url: aiSettings.api_base } : null)
                         }
                         onChange={(_event, newValue) => {
-                            if (newValue) {
-                                if (typeof newValue !== 'string') {
-                                    onAiSettingsChange('api_base', newValue.url);
-                                } else {
-                                    onAiSettingsChange('api_base', newValue);
-                                }
-                            } else {
-                                onAiSettingsChange('api_base', '');
+                            const urlValue = typeof newValue === 'string'
+                                ? newValue
+                                : newValue?.url ?? '';
+                            onAiSettingsChange('api_base', urlValue);
+                        }}
+                        onInputChange={(_event, newInputValue, reason) => {
+                            if (reason === 'input') {
+                                onAiSettingsChange('api_base', newInputValue);
                             }
                         }}
                         freeSolo
@@ -217,7 +221,7 @@ export default function AiSettingsSection({
                                 label="API Base URL"
                                 fullWidth
                                 variant="outlined"
-                                helperText="AI 服务的基础 URL，可以选择预设供应商或手动输入"
+                                helperText="AI 服务的基础 URL,可以选择预设供应商或手动输入"
                                 sx={
                                     {
                                         '& .MuiFormHelperText-root': {
