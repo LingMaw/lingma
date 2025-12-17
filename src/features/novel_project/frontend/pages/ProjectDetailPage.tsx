@@ -3,6 +3,11 @@ import {
     Box,
     Button,
     Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
     FormControl,
     FormLabel,
     Grid2,
@@ -32,6 +37,16 @@ const ProjectDetailPage: React.FC = () => {
     const [genre, setGenre] = useState('')
     const [style, setStyle] = useState('')
     const [status, setStatus] = useState('draft')
+    
+    // 自定义选项状态
+    const [customGenre, setCustomGenre] = useState('')
+    const [customStyle, setCustomStyle] = useState('')
+    
+    // 自定义选项对话框状态
+    const [openGenreDialog, setOpenGenreDialog] = useState(false)
+    const [openStyleDialog, setOpenStyleDialog] = useState(false)
+    const [tempCustomValue, setTempCustomValue] = useState('')
+    const [customValueType, setCustomValueType] = useState<'genre' | 'style'>('genre')
 
     const [loading, setLoading] = useState(isEditing)
     const [saving, setSaving] = useState(false)
@@ -40,6 +55,47 @@ const ProjectDetailPage: React.FC = () => {
 
     const navigate = useNavigate()
     const theme = useTheme()
+    
+    // 处理自定义选项
+    const handleCustomOption = (type: 'genre' | 'style') => {
+        setCustomValueType(type)
+        setTempCustomValue('')
+        if (type === 'genre') {
+            setOpenGenreDialog(true)
+        } else {
+            setOpenStyleDialog(true)
+        }
+    }
+    
+    // 保存自定义选项
+    const saveCustomOption = () => {
+        if (customValueType === 'genre') {
+            setCustomGenre(tempCustomValue)
+            setGenre(tempCustomValue)
+            setOpenGenreDialog(false)
+        } else {
+            setCustomStyle(tempCustomValue)
+            setStyle(tempCustomValue)
+            setOpenStyleDialog(false)
+        }
+    }
+    
+    // 处理选项更改
+    const handleGenreChange = (value: string) => {
+        if (value === 'custom_genre') {
+            handleCustomOption('genre')
+        } else {
+            setGenre(value)
+        }
+    }
+    
+    const handleStyleChange = (value: string) => {
+        if (value === 'custom_style') {
+            handleCustomOption('style')
+        } else {
+            setStyle(value)
+        }
+    }
 
     useEffect(() => {
         if (isEditing) {
@@ -95,8 +151,13 @@ const ProjectDetailPage: React.FC = () => {
         }
     }
 
-    const genreOptions = ['科幻', '奇幻', '悬疑', '爱情', '历史', '军事', '都市', '武侠', '仙侠', '游戏', '体育', '灵异']
-    const styleOptions = ['现实主义', '浪漫主义', '古典主义', '现代主义', '魔幻现实主义', '黑色幽默', '意识流', '自然主义']
+    const presetGenreOptions = ['科幻', '奇幻', '悬疑', '爱情', '历史', '军事', '都市', '武侠', '仙侠', '游戏', '体育', '灵异']
+    const presetStyleOptions = ['现实主义', '浪漫主义', '古典主义', '现代主义', '魔幻现实主义', '黑色幽默', '意识流', '自然主义']
+    
+    // 获取最终的选项列表，包括自定义选项
+    const genreOptions = [...new Set([...presetGenreOptions, customGenre].filter(Boolean))]
+    const styleOptions = [...new Set([...presetStyleOptions, customStyle].filter(Boolean))]
+    
     const statusOptions = [
         { value: 'draft', label: '草稿' },
         { value: 'in_progress', label: '进行中' },
@@ -214,7 +275,7 @@ const ProjectDetailPage: React.FC = () => {
                                             <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>小说类型</FormLabel>
                                             <Select
                                                 value={genre}
-                                                onChange={(e) => setGenre(e.target.value)}
+                                                onChange={(e) => handleGenreChange(e.target.value)}
                                                 displayEmpty
                                                 sx={{
                                                     borderRadius: 3,
@@ -238,6 +299,9 @@ const ProjectDetailPage: React.FC = () => {
                                                         {g}
                                                     </MenuItem>
                                                 ))}
+                                                <MenuItem value="custom_genre">
+                                                    <em>自定义...</em>
+                                                </MenuItem>
                                             </Select>
                                         </FormControl>
                                     </Grid2>
@@ -247,7 +311,7 @@ const ProjectDetailPage: React.FC = () => {
                                             <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>写作风格</FormLabel>
                                             <Select
                                                 value={style}
-                                                onChange={(e) => setStyle(e.target.value)}
+                                                onChange={(e) => handleStyleChange(e.target.value)}
                                                 displayEmpty
                                                 sx={{
                                                     borderRadius: 3,
@@ -271,6 +335,9 @@ const ProjectDetailPage: React.FC = () => {
                                                         {s}
                                                     </MenuItem>
                                                 ))}
+                                                <MenuItem value="custom_style">
+                                                    <em>自定义...</em>
+                                                </MenuItem>
                                             </Select>
                                         </FormControl>
                                     </Grid2>
@@ -324,6 +391,56 @@ const ProjectDetailPage: React.FC = () => {
                         {error || '操作成功'}
                     </Alert>
                 </Snackbar>
+                
+                {/* 自定义小说类型对话框 */}
+                <Dialog open={openGenreDialog} onClose={() => setOpenGenreDialog(false)}>
+                    <DialogTitle>添加自定义小说类型</DialogTitle>
+                    <DialogContent>
+                        <DialogContentText>
+                            请输入您想要添加的小说类型
+                        </DialogContentText>
+                        <TextField
+                            autoFocus
+                            margin="dense"
+                            label="小说类型"
+                            fullWidth
+                            variant="outlined"
+                            value={tempCustomValue}
+                            onChange={(e) => setTempCustomValue(e.target.value)}
+                        />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setOpenGenreDialog(false)}>取消</Button>
+                        <Button onClick={saveCustomOption} disabled={!tempCustomValue.trim()}>
+                            添加
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+                
+                {/* 自定义写作风格对话框 */}
+                <Dialog open={openStyleDialog} onClose={() => setOpenStyleDialog(false)}>
+                    <DialogTitle>添加自定义写作风格</DialogTitle>
+                    <DialogContent>
+                        <DialogContentText>
+                            请输入您想要添加的写作风格
+                        </DialogContentText>
+                        <TextField
+                            autoFocus
+                            margin="dense"
+                            label="写作风格"
+                            fullWidth
+                            variant="outlined"
+                            value={tempCustomValue}
+                            onChange={(e) => setTempCustomValue(e.target.value)}
+                        />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setOpenStyleDialog(false)}>取消</Button>
+                        <Button onClick={saveCustomOption} disabled={!tempCustomValue.trim()}>
+                            添加
+                        </Button>
+                    </DialogActions>
+                </Dialog>
             </motion.div>
         </Box>
     )

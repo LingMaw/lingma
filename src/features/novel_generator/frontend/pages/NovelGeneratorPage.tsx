@@ -353,6 +353,10 @@ const NovelGeneratorPage: React.FC = () => {
                                     {g}
                                   </MenuItem>
                                 ))}
+                                {/* 如果当前值不在预设选项中，单独添加一项以确保显示正确 */}
+                                {state.form.genre && !GENRE_OPTIONS.includes(state.form.genre) && (
+                                  <MenuItem value={state.form.genre}>{state.form.genre}</MenuItem>
+                                )}
                               </Select>
                             </FormControl>
                           </Grid2>
@@ -380,6 +384,10 @@ const NovelGeneratorPage: React.FC = () => {
                                     {s}
                                   </MenuItem>
                                 ))}
+                                {/* 如果当前值不在预设选项中，单独添加一项以确保显示正确 */}
+                                {state.form.style && !STYLE_OPTIONS.includes(state.form.style) && (
+                                  <MenuItem value={state.form.style}>{state.form.style}</MenuItem>
+                                )}
                               </Select>
                             </FormControl>
                           </Grid2>
