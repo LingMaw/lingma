@@ -8,6 +8,9 @@ import NovelGeneratorPage from '@/features/novel_generator/frontend/pages/NovelG
 import NovelProjectListPage from '@/features/novel_project/frontend/pages/ProjectListPage'
 import NovelProjectDetailPage from '@/features/novel_project/frontend/pages/ProjectDetailPage'
 import NovelProjectViewPage from '@/features/novel_project/frontend/pages/ProjectViewPage'
+import ChapterListPage from '@/features/novel_project/frontend/pages/ChapterListPage'
+import ChapterEditPage from '@/features/novel_project/frontend/pages/ChapterEditPage'
+import ChapterDetailPage from '@/features/novel_project/frontend/pages/ChapterDetailPage'
 import ProfilePage from '@/features/user/frontend/pages/ProfilePage'
 
 import ProtectedRoute from './ProtectedRoute'
@@ -31,6 +34,10 @@ const router = createHashRouter([
       { path: '/novel_projects/create', element: <NovelProjectDetailPage /> },
       { path: '/novel_projects/:id/edit', element: <NovelProjectDetailPage /> },
       { path: '/novel_projects/:id', element: <NovelProjectViewPage /> },
+      { path: '/novel_projects/:id/chapters', element: <ChapterListPage /> },
+      { path: '/novel_projects/:id/chapter/create', element: <ChapterEditPage /> },
+      { path: '/novel_projects/:id/chapter/:chapterId/edit', element: <ChapterEditPage /> },
+      { path: '/novel_projects/:id/chapter/:chapterId', element: <ChapterDetailPage /> },
     ],
   },
   {

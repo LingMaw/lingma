@@ -12,6 +12,7 @@ import {
     FormLabel,
     Grid2,
     Paper,
+    Switch,
     TextField,
     Typography,
     CircularProgress,
@@ -37,6 +38,7 @@ const ProjectDetailPage: React.FC = () => {
     const [genre, setGenre] = useState('')
     const [style, setStyle] = useState('')
     const [status, setStatus] = useState('draft')
+    const [useChapterSystem, setUseChapterSystem] = useState(false)
     
     // 自定义选项状态
     const [customGenre, setCustomGenre] = useState('')
@@ -112,6 +114,7 @@ const ProjectDetailPage: React.FC = () => {
             setGenre(project.genre || '')
             setStyle(project.style || '')
             setStatus(project.status || 'draft') // 处理可能为null的情况
+            setUseChapterSystem(project.use_chapter_system || false)
         } catch (err) {
             setError('获取项目信息失败')
             setSnackbarOpen(true)
@@ -130,6 +133,7 @@ const ProjectDetailPage: React.FC = () => {
                 genre,
                 style,
                 status,
+                use_chapter_system: useChapterSystem,
                 word_count: 0 // 添加缺失的word_count字段
             }
 
@@ -368,6 +372,29 @@ const ProjectDetailPage: React.FC = () => {
                                                     </MenuItem>
                                                 ))}
                                             </Select>
+                                        </FormControl>
+                                    </Grid2>
+                                    
+                                    <Grid2 size={12}>
+                                        <FormControl fullWidth>
+                                            <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>
+                                                章节系统
+                                            </FormLabel>
+                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                <Switch
+                                                    checked={useChapterSystem}
+                                                    onChange={(e) => setUseChapterSystem(e.target.checked)}
+                                                    color="primary"
+                                                />
+                                                <Typography variant="body1" sx={{ ml: 1 }}>
+                                                    {useChapterSystem ? '启用章节管理' : '禁用章节管理'}
+                                                </Typography>
+                                            </Box>
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                                {useChapterSystem 
+                                                    ? '启用后，您可以将小说内容分解为多个章节进行管理'
+                                                    : '禁用时，小说内容将以完整文本形式展示'}
+                                            </Typography>
                                         </FormControl>
                                     </Grid2>
                                 </Grid2>

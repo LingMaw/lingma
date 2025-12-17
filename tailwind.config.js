@@ -11,8 +11,6 @@ export default {
   future: {
     hoverOnlyWhenSupported: true,
   },
-  experimental: {
-    optimizeUniversalDefaults: true
-  }
+  
 }
 

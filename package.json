@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:backend": ".\\scripts\\dev-backend.bat",
+    "dev:backend": "sh ./scripts/dev-backend.sh",
     "dev:frontend": "vite",
     "dev:watch": "node scripts/watch-openapi.js",
     "dev:all": "concurrently \"pnpm dev:backend\" \"pnpm dev:frontend\" \"pnpm dev:watch\" --names \"nvs-bed,nvs-fed,nvs-types\" --prefix-colors \"blue,green,yellow\"",
@@ -31,6 +31,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fontsource/inter": "^5.2.8",
+    "@hello-pangea/dnd": "^18.0.1",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^6.3.1",
