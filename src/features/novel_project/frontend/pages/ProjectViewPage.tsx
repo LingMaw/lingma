@@ -13,14 +13,6 @@ import {
     Divider,
     useTheme,
     alpha,
-    IconButton,
-    Tooltip,
-    List,
-    ListItem,
-    ListItemText,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -29,10 +21,8 @@ import { chapterAPI } from '@/features/novel_project/frontend/chapter_api'
 import { containerVariants, itemVariants } from '@/frontend/core/animation'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import BookIcon from '@mui/icons-material/Book'
 import AutoStoriesIcon from '@mui/icons-material/AutoStories'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 
 const ProjectViewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>()
@@ -82,14 +72,6 @@ const ProjectViewPage: React.FC = () => {
             setChapters(chaptersData.items)
         } catch (err) {
             console.error('获取章节列表失败:', err)
-        }
-    }
-
-    const handleCopyContent = () => {
-        if (project?.content) {
-            navigator.clipboard.writeText(project.content)
-            setSnackbarMessage('内容已复制到剪贴板')
-            setSnackbarOpen(true)
         }
     }
 

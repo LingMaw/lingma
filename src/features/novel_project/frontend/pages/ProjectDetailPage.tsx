@@ -254,26 +254,6 @@ const ProjectDetailPage: React.FC = () => {
                                         </FormControl>
                                     </Grid2>
 
-                                    <Grid2 size={12}>
-                                        <FormControl fullWidth>
-                                            <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>项目描述</FormLabel>
-                                            <TextField
-                                                value={description}
-                                                onChange={(e) => setDescription(e.target.value)}
-                                                placeholder="请输入项目描述"
-                                                multiline
-                                                rows={4}
-                                                variant="outlined"
-                                                fullWidth
-                                                sx={{
-                                                    '& .MuiOutlinedInput-root': {
-                                                        borderRadius: 3,
-                                                    }
-                                                }}
-                                            />
-                                        </FormControl>
-                                    </Grid2>
-
                                     <Grid2 size={{ xs: 12, md: 6 }}>
                                         <FormControl fullWidth variant="outlined">
                                             <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>小说类型</FormLabel>
@@ -395,6 +375,26 @@ const ProjectDetailPage: React.FC = () => {
                                                     ? '启用后，您可以将小说内容分解为多个章节进行管理'
                                                     : '禁用时，小说内容将以完整文本形式展示'}
                                             </Typography>
+                                        </FormControl>
+                                    </Grid2>
+
+                                    <Grid2 size={12}>
+                                        <FormControl fullWidth>
+                                            <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>项目描述</FormLabel>
+                                            <TextField
+                                                value={description}
+                                                onChange={(e) => setDescription(e.target.value)}
+                                                placeholder="请输入项目描述"
+                                                multiline
+                                                rows={4}
+                                                variant="outlined"
+                                                fullWidth
+                                                sx={{
+                                                    '& .MuiOutlinedInput-root': {
+                                                        borderRadius: 3,
+                                                    }
+                                                }}
+                                            />
                                         </FormControl>
                                     </Grid2>
                                 </Grid2>
