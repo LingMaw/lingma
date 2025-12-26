@@ -23,6 +23,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
 import BookIcon from '@mui/icons-material/Book'
 import AutoStoriesIcon from '@mui/icons-material/AutoStories'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
 
 const ProjectViewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>()
@@ -140,6 +141,20 @@ const ProjectViewPage: React.FC = () => {
                             项目详情
                         </Typography>
                         <Box>
+                            <Button
+                                variant="outlined"
+                                startIcon={<AccountTreeIcon />}
+                                onClick={() => navigate(`/novel_projects/${id}/outline`)}
+                                sx={{
+                                    borderRadius: 3,
+                                    py: 1,
+                                    px: 2,
+                                    mr: 1,
+                                    fontWeight: 600,
+                                }}
+                            >
+                                编辑大纲
+                            </Button>
                             {project?.use_chapter_system ? (
                                 <Button
                                     variant="contained"
