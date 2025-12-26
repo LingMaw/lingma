@@ -1,5 +1,6 @@
 """大纲管理API路由"""
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from typing import Optional
 from tortoise.transactions import in_transaction
 
@@ -15,8 +16,12 @@ from src.features.novel_outline.backend.schemas import (
     ReorderRequest,
     ReorderResponse,
     DeleteResponse,
+    OutlineGenerateRequest,
+    RegenerateChildrenRequest,
 )
+from src.features.novel_outline.backend.ai import outline_ai_service
 from src.backend.core.exceptions import APIError
+from src.backend.core.dependencies import CurrentUserId
 
 router = APIRouter()
 
@@ -391,4 +396,77 @@ async def reorder_nodes(project_id: int, reorder_data: ReorderRequest):
     return ReorderResponse(
         message="顺序更新成功",
         updated_nodes=updated_nodes
+    )
+
+
+# ============= AI 生成相关端点 =============
+
+@router.post("/{project_id}/outline/generate")
+async def generate_outline(
+    project_id: int,
+    request: OutlineGenerateRequest,
+    current_user_id: CurrentUserId,
+):
+    """AI 生成完整大纲(SSE流式返回)
+    
+    Args:
+        project_id: 小说项目ID
+        request: 生成请求参数
+        current_user_id: 当前用户ID
+        
+    Returns:
+        SSE 流式响应
+    """
+    async def generate_stream():
+        async for event in outline_ai_service.generate_outline_stream(
+            user_id=current_user_id,
+            project_id=project_id,
+            params=request,
+        ):
+            yield event
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.post("/{project_id}/outline/nodes/{node_id}/regenerate-children")
+async def regenerate_children(
+    project_id: int,
+    node_id: int,
+    request: RegenerateChildrenRequest,
+    current_user_id: CurrentUserId,
+):
+    """重新生成节点的子节点(SSE流式返回)
+    
+    Args:
+        project_id: 小说项目ID
+        node_id: 父节点ID
+        request: 重新生成请求参数
+        current_user_id: 当前用户ID
+        
+    Returns:
+        SSE 流式响应
+    """
+    async def regenerate_stream():
+        async for event in outline_ai_service.regenerate_children_stream(
+            user_id=current_user_id,
+            project_id=project_id,
+            parent_node_id=node_id,
+            params=request,
+        ):
+            yield event
+    
+    return StreamingResponse(
+        regenerate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
     )

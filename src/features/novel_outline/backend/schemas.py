@@ -1,6 +1,6 @@
 """大纲节点Pydantic Schema定义"""
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 
 
@@ -129,3 +129,46 @@ class ReorderResponse(BaseModel):
         default_factory=list,
         description="更新后的节点信息(id和position)"
     )
+
+
+# ============= AI 生成相关 Schema =============
+
+class OutlineGenerateRequest(BaseModel):
+    """AI 大纲生成请求参数"""
+    
+    theme: str = Field(..., min_length=1, description="小说主题/简介")
+    genre: Optional[str] = Field(None, max_length=50, description="小说类型(如玄幻、都市、科幻)")
+    style: Optional[str] = Field(None, max_length=50, description="写作风格(如轻松幽默、严肃深沉)")
+    chapter_count_range: Optional[Tuple[int, int]] = Field(None, description="章节数范围")
+    reference_outline: Optional[str] = Field(None, max_length=5000, description="参考大纲文本")
+    key_plots: Optional[List[str]] = Field(None, max_length=20, description="关键情节点列表")
+    custom_instructions: Optional[str] = Field(None, max_length=1000, description="自定义生成指令")
+    generate_sections: bool = Field(True, description="是否生成第三层(小节)")
+    
+    @field_validator('chapter_count_range')
+    @classmethod
+    def validate_range(cls, v: Optional[Tuple[int, int]]) -> Optional[Tuple[int, int]]:
+        """验证章节数范围"""
+        if v and (v[0] < 1 or v[1] > 100 or v[0] > v[1]):
+            raise ValueError("章节数范围必须在 1-100 之间,且最小值不能大于最大值")
+        return v
+    
+    @field_validator('key_plots')
+    @classmethod
+    def validate_key_plots(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        """验证关键情节点"""
+        if v:
+            if len(v) > 20:
+                raise ValueError("关键情节点最多 20 个")
+            for plot in v:
+                if len(plot) > 200:
+                    raise ValueError("单个情节点最多 200 字符")
+        return v
+
+
+class RegenerateChildrenRequest(BaseModel):
+    """重新生成子节点请求参数"""
+    
+    delete_existing: bool = Field(True, description="是否删除现有子节点")
+    custom_instructions: Optional[str] = Field(None, max_length=1000, description="额外生成指令")
+    max_children: Optional[int] = Field(None, ge=1, le=50, description="最大子节点数量")

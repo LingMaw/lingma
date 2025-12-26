@@ -54,6 +54,25 @@ export interface ReorderRequest {
   node_ids: number[]
 }
 
+// ============= AI 生成相关类型 =============
+
+export interface OutlineGenerateRequest {
+  theme: string
+  genre?: string
+  style?: string
+  chapter_count_range?: [number, number]
+  reference_outline?: string
+  key_plots?: string[]
+  custom_instructions?: string
+  generate_sections?: boolean
+}
+
+export interface RegenerateChildrenRequest {
+  delete_existing?: boolean
+  custom_instructions?: string
+  max_children?: number
+}
+
 export const outlineAPI = {
   /**
    * 获取项目的完整大纲树
@@ -127,5 +146,19 @@ export const outlineAPI = {
       reorderData
     )
     return data
+  },
+
+  /**
+   * AI 生成完整大纲 (返回 SSE URL)
+   */
+  getGenerateOutlineUrl(projectId: number): string {
+    return `/novel-projects/${projectId}/outline/generate`
+  },
+
+  /**
+   * 重新生成子节点 (返回 SSE URL)
+   */
+  getRegenerateChildrenUrl(projectId: number, nodeId: number): string {
+    return `/novel-projects/${projectId}/outline/nodes/${nodeId}/regenerate-children`
   },
 }

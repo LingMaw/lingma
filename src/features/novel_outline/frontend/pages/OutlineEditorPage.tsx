@@ -25,6 +25,7 @@ import {
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
+  AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 // 假设这是你的动画配置路径，如果报错请改为你的实际路径
@@ -33,8 +34,11 @@ import { useOutlineTree } from '../hooks/useOutlineTree'
 import { useOutlineNode } from '../hooks/useOutlineNode'
 import OutlineTree from '../components/OutlineTree'
 import OutlineNodeEditor from '../components/OutlineNodeEditor'
-import type { OutlineNodeWithChildren, OutlineNodeCreate, OutlineNodeUpdate } from '../api'
+import OutlineGeneratorDialog from '../components/OutlineGeneratorDialog'
+import GenerationProgressPanel from '../components/GenerationProgressPanel'
+import type { OutlineNodeWithChildren, OutlineNodeCreate, OutlineNodeUpdate, OutlineGenerateRequest } from '../api'
 import { outlineAPI } from '../api'
+import { novelProjectAPI } from '@/features/novel_project/frontend/api'
 // 注意：删除了 DropResult 的引用，因为不再需要 react-beautiful-dnd
 
 export default function OutlineEditorPage() {
@@ -56,6 +60,36 @@ export default function OutlineEditorPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [nodeToDelete, setNodeToDelete] = useState<number | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  
+  // AI生成相关状态
+  const [generatorOpen, setGeneratorOpen] = useState(false)
+  const [progressPanelOpen, setProgressPanelOpen] = useState(false)
+  const [generateParams, setGenerateParams] = useState<OutlineGenerateRequest | null>(null)
+  const [generateError, setGenerateError] = useState<string>('')
+  
+  // 项目信息状态
+  const [projectInfo, setProjectInfo] = useState<{
+    description?: string
+    genre?: string
+    style?: string
+  }>({})
+
+  // 加载项目信息
+  useEffect(() => {
+    const loadProjectInfo = async () => {
+      try {
+        const project = await novelProjectAPI.getProject(projectId)
+        setProjectInfo({
+          description: project.description || '',
+          genre: project.genre || '',
+          style: project.style || '',
+        })
+      } catch (error) {
+        console.error('Failed to load project info:', error)
+      }
+    }
+    loadProjectInfo()
+  }, [projectId])
 
   useEffect(() => {
     loadTree()
@@ -190,6 +224,25 @@ export default function OutlineEditorPage() {
     [projectId, treeData, refreshTree]
   )
   // --- 结束新增 ---
+  
+  // AI生成处理函数
+  const handleGenerateStart = useCallback((params: OutlineGenerateRequest) => {
+    setGenerateParams(params)
+    setGeneratorOpen(false)
+    setProgressPanelOpen(true)
+    setGenerateError('') // 清除之前的错误
+  }, [])
+  
+  const handleGenerateComplete = useCallback(async (totalNodes: number) => {
+    console.log(`生成完成, 共${totalNodes}个节点`)
+    await refreshTree()
+    setTimeout(() => setProgressPanelOpen(false), 3000)
+  }, [refreshTree])
+  
+  const handleGenerateError = useCallback((error: string) => {
+    console.error('生成失败:', error)
+    setGenerateError(error) // 在页面主区域显示错误
+  }, [])
 
   if (loading && !treeData) {
     return (
@@ -274,6 +327,20 @@ export default function OutlineEditorPage() {
           >
             新建卷
           </Button>
+          
+          <Button
+            variant="outlined"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={() => setGeneratorOpen(true)}
+            sx={{
+              borderRadius: 3,
+              px: 3,
+              py: 1.5,
+              fontWeight: 600,
+            }}
+          >
+            AI生成
+          </Button>
         </Stack>
 
         {/* 错误提示 */}
@@ -287,6 +354,36 @@ export default function OutlineEditorPage() {
           >
             {error}
           </Alert>
+        )}
+        
+        {/* AI生成错误提示 */}
+        {generateError && (
+          <Alert
+            severity="error"
+            onClose={() => setGenerateError('')}
+            sx={{
+              mb: 3,
+              borderRadius: 3,
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              AI生成失败
+            </Typography>
+            <Typography variant="body2">{generateError}</Typography>
+          </Alert>
+        )}
+        
+        {/* 生成进度面板 */}
+        {progressPanelOpen && generateParams && (
+          <Box sx={{ mb: 3 }}>
+            <GenerationProgressPanel
+              projectId={projectId}
+              generateParams={generateParams}
+              onComplete={handleGenerateComplete}
+              onError={handleGenerateError}
+              onCancel={() => setProgressPanelOpen(false)}
+            />
+          </Box>
         )}
 
         {/* 大纲树 */}
@@ -354,6 +451,17 @@ export default function OutlineEditorPage() {
             </Button>
           </DialogActions>
         </Dialog>
+        
+        {/* AI生成对话框 */}
+        <OutlineGeneratorDialog
+          open={generatorOpen}
+          onClose={() => setGeneratorOpen(false)}
+          projectId={projectId}
+          onGenerateStart={handleGenerateStart}
+          projectDescription={projectInfo.description}
+          projectGenre={projectInfo.genre}
+          projectStyle={projectInfo.style}
+        />
       </Container>
     </motion.div>
   )
