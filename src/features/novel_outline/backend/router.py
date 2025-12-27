@@ -20,6 +20,7 @@ from src.features.novel_outline.backend.schemas import (
     RegenerateChildrenRequest,
 )
 from src.features.novel_outline.backend.ai import outline_ai_service
+from src.features.novel_outline.backend.sync_service import ChapterSyncService
 from src.backend.core.exceptions import APIError
 from src.backend.core.dependencies import CurrentUserId
 
@@ -33,29 +34,39 @@ async def build_tree(nodes: list[OutlineNode]) -> list[OutlineNodeWithChildren]:
         nodes: 节点列表
         
     Returns:
-        树形结构的节点列表
+        树形结构的节点列表，按 position 排序
     """
-    # 构建节点字典
-    node_dict = {node.id: node for node in nodes}
-    
-    # 构建父子关系
-    tree = []
+    # 🔧 修复：使用字典存储所有节点（包括转换后的 Pydantic 模型）
+    node_dict = {}
     for node in nodes:
         node_data = OutlineNodeWithChildren.model_validate(node)
+        node_dict[node.id] = node_data
+    
+    # 🔧 修复：构建父子关系 - 遍历所有节点，将子节点添加到父节点的 children 中
+    root_nodes = []
+    for node in nodes:
+        node_data = node_dict[node.id]
         
         if node.parent_id is None:
             # 根节点
-            tree.append(node_data)
+            root_nodes.append(node_data)
         else:
-            # 子节点,添加到父节点的children
-            parent = node_dict.get(node.parent_id)
-            if parent:
-                # 需要找到tree中对应的父节点
-                parent_in_tree = find_node_in_tree(tree, parent.id)
-                if parent_in_tree:
-                    parent_in_tree.children.append(node_data)
+            # 子节点，添加到父节点的 children 中
+            parent_data = node_dict.get(node.parent_id)
+            if parent_data:
+                parent_data.children.append(node_data)
     
-    return tree
+    # 🔧 修复：递归对所有层级的节点按 position 排序
+    def sort_children(node_list: list[OutlineNodeWithChildren]):
+        """递归排序节点及其子节点"""
+        node_list.sort(key=lambda n: n.position)
+        for node in node_list:
+            if node.children:
+                sort_children(node.children)
+    
+    sort_children(root_nodes)
+    
+    return root_nodes
 
 
 def find_node_in_tree(tree: list[OutlineNodeWithChildren], node_id: int) -> Optional[OutlineNodeWithChildren]:
@@ -105,7 +116,9 @@ async def get_outline_tree(project_id: int):
         完整的大纲树结构
     """
     # 获取该项目的所有大纲节点
-    nodes = await OutlineNode.filter(novel_id=project_id).order_by("position").all()
+    # 🔧 修复：不再按 position 排序，因为 position 是同级节点的位置
+    # 而是获取所有节点后在 build_tree 中按层级构建
+    nodes = await OutlineNode.filter(novel_id=project_id).all()
     
     # 构建树形结构
     root_nodes = await build_tree(nodes)
@@ -145,25 +158,31 @@ async def create_outline_node(project_id: int, node_data: OutlineNodeCreate):
         ).all()
         node_data.position = len(siblings)
     
-    # 创建节点
-    node = await OutlineNode.create(
-        novel_id=project_id,
-        parent_id=node_data.parent_id,
-        node_type=node_data.node_type,
-        title=node_data.title,
-        description=node_data.description,
-        position=node_data.position,
-        status=node_data.status,
-        metadata=node_data.metadata
-    )
-    
-    # 验证层级关系
-    try:
-        await node.validate_hierarchy()
-    except ValueError as e:
-        # 如果验证失败,删除已创建的节点
-        await node.delete()
-        raise HTTPException(status_code=400, detail=str(e))
+    # ✨ 在事务中创建节点和同步 Chapter
+    async with in_transaction():
+        # 创建节点
+        node = await OutlineNode.create(
+            novel_id=project_id,
+            parent_id=node_data.parent_id,
+            node_type=node_data.node_type,
+            title=node_data.title,
+            description=node_data.description,
+            position=node_data.position,
+            status=node_data.status,
+            metadata=node_data.metadata
+        )
+        
+        # 验证层级关系
+        try:
+            await node.validate_hierarchy()
+        except ValueError as e:
+            # 如果验证失败,事务会自动回滚
+            raise HTTPException(status_code=400, detail=str(e))
+        
+        # ✨ [已废弃] 不再自动创建 Chapter 记录
+        # 章节创建由独立的 chapter_editor 功能负责
+        
+        # ❌ 已删除：不再调用 recalculate_all_numbers（改为运行时计算）
     
     return OutlineNodeResponse.model_validate(node)
 
@@ -202,6 +221,9 @@ async def update_outline_node(
             setattr(node, field, value)
     
     await node.save()
+    
+    # ❌ 已删除：不再调用 sync_on_update（不再自动同步）
+    # 章节系统与大纲系统解耦，由 chapter_editor 独立管理
     
     return OutlineNodeResponse.model_validate(node)
 
@@ -248,6 +270,7 @@ async def delete_outline_node(
             # 递归删除所有子孙节点
             await delete_node_recursive(node_id)
         else:
+            # 删除单个节点（不再自动删除关联的 Chapter）
             await node.delete()
         
         # 调整同级节点的position
@@ -260,6 +283,8 @@ async def delete_outline_node(
         for sibling in siblings:
             sibling.position -= 1
             await sibling.save()
+        
+        # ❌ 已删除：不再调用 recalculate_all_numbers（改为运行时计算）
     
     return DeleteResponse(
         message="节点删除成功",
@@ -277,6 +302,7 @@ async def delete_node_recursive(node_id: int):
     for child in children:
         await delete_node_recursive(child.id)
     
+    # 删除节点（不再自动删除关联的 Chapter）
     await OutlineNode.filter(id=node_id).delete()
 
 
@@ -352,6 +378,8 @@ async def update_node_position(
             sibling.position += 1
             await sibling.save()
             affected_siblings.append({"id": sibling.id, "position": sibling.position})
+        
+        # ❌ 已删除：不再调用 recalculate_all_numbers（改为运行时计算）
     
     return PositionUpdateResponse(
         node=OutlineNodeResponse.model_validate(node),
@@ -392,6 +420,8 @@ async def reorder_nodes(project_id: int, reorder_data: ReorderRequest):
         for index, node_id in enumerate(reorder_data.node_ids):
             await OutlineNode.filter(id=node_id).update(position=index)
             updated_nodes.append({"id": node_id, "position": index})
+        
+        # ❌ 已删除：不再调用 recalculate_all_numbers（改为运行时计算）
     
     return ReorderResponse(
         message="顺序更新成功",
@@ -400,6 +430,26 @@ async def reorder_nodes(project_id: int, reorder_data: ReorderRequest):
 
 
 # ============= AI 生成相关端点 =============
+
+@router.get("/{project_id}/outline/nodes/{node_id}/section-hints")
+async def get_section_hints(project_id: int, node_id: int):
+    """获取章节节点的 section 内容提示
+    
+    用于 AI 生成章节内容时作为参考。
+    
+    Args:
+        project_id: 小说项目ID
+        node_id: chapter 节点ID
+        
+    Returns:
+        章节标题、描述和 section 列表
+    """
+    try:
+        hints = await ChapterSyncService.get_section_hints(node_id)
+        return hints
+    except APIError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
 
 @router.post("/{project_id}/outline/generate")
 async def generate_outline(

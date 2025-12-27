@@ -113,6 +113,23 @@ export default function OutlineNodeEditor({
     return 'section'
   }
 
+  // 根据父节点类型,获取允许创建的节点类型列表
+  const getAllowedNodeTypes = () => {
+    if (!parentNode) {
+      // 顶层只能创建 volume
+      return ['volume']
+    }
+    if (parentNode.node_type === 'volume') {
+      // volume 下只能创建 chapter
+      return ['chapter']
+    }
+    if (parentNode.node_type === 'chapter') {
+      // chapter 下只能创建 section
+      return ['section']
+    }
+    return []
+  }
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
     if (!formData.title.trim()) {
@@ -207,48 +224,53 @@ export default function OutlineNodeEditor({
         <Stack spacing={3} sx={{ mt: 1 }}>
           
           {/* 类型选择器 - 仅在创建时显示，改为卡片式选择 */}
-          {mode === 'create' && (
-            <Stack direction="row" spacing={1.5}>
-              {nodeTypeOptions.map((option) => {
-                const isSelected = formData.node_type === option.value
-                const Icon = option.icon
-                return (
-                  <Box
-                    key={option.value}
-                    onClick={() => setFormData({ ...formData, node_type: option.value as any })}
-                    sx={{
-                      flex: 1,
-                      p: 1.5,
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      border: '2px solid',
-                      borderColor: isSelected ? option.color : 'transparent',
-                      bgcolor: isSelected ? alpha(option.color, 0.08) : alpha(theme.palette.action.hover, 0.05),
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      '&:hover': {
-                        bgcolor: isSelected ? alpha(option.color, 0.12) : alpha(theme.palette.action.hover, 0.1),
-                      },
-                    }}
-                  >
-                    <Icon sx={{ color: isSelected ? option.color : 'text.secondary', fontSize: 24 }} />
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        fontWeight: isSelected ? 600 : 400,
-                        color: isSelected ? option.color : 'text.secondary'
+          {mode === 'create' && (() => {
+            const allowedTypes = getAllowedNodeTypes()
+            const filteredOptions = nodeTypeOptions.filter(opt => allowedTypes.includes(opt.value))
+            
+            return (
+              <Stack direction="row" spacing={1.5}>
+                {filteredOptions.map((option) => {
+                  const isSelected = formData.node_type === option.value
+                  const Icon = option.icon
+                  return (
+                    <Box
+                      key={option.value}
+                      onClick={() => setFormData({ ...formData, node_type: option.value as any })}
+                      sx={{
+                        flex: 1,
+                        p: 1.5,
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        border: '2px solid',
+                        borderColor: isSelected ? option.color : 'transparent',
+                        bgcolor: isSelected ? alpha(option.color, 0.08) : alpha(theme.palette.action.hover, 0.05),
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        '&:hover': {
+                          bgcolor: isSelected ? alpha(option.color, 0.12) : alpha(theme.palette.action.hover, 0.1),
+                        },
                       }}
                     >
-                      {option.label}
-                    </Typography>
-                  </Box>
-                )
-              })}
-            </Stack>
-          )}
+                      <Icon sx={{ color: isSelected ? option.color : 'text.secondary', fontSize: 24 }} />
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          fontWeight: isSelected ? 600 : 400,
+                          color: isSelected ? option.color : 'text.secondary'
+                        }}
+                      >
+                        {option.label}
+                      </Typography>
+                    </Box>
+                  )
+                })}
+              </Stack>
+            )
+          })()}
 
           {/* 标题输入 */}
           <TextField

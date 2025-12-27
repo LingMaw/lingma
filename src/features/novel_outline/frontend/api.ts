@@ -15,6 +15,9 @@ export interface OutlineNode {
   created_at: string
   updated_at: string
   metadata: Record<string, unknown>
+  // ✨ 关联的章节信息（仅当node_type='chapter'时有值）
+  chapter_id?: string
+  chapter_number?: number
 }
 
 export interface OutlineNodeWithChildren extends OutlineNode {
@@ -160,5 +163,23 @@ export const outlineAPI = {
    */
   getRegenerateChildrenUrl(projectId: number, nodeId: number): string {
     return `/novel-projects/${projectId}/outline/nodes/${nodeId}/regenerate-children`
+  },
+
+  /**
+   * 获取章节的section提示内容
+   */
+  async getSectionHints(projectId: number, nodeId: number): Promise<{
+    chapter_title: string
+    chapter_description: string
+    sections: Array<{
+      title: string
+      description: string
+      position: number
+    }>
+  }> {
+    const { data } = await httpClient.get(
+      `/novel-projects/${projectId}/outline/nodes/${nodeId}/section-hints`
+    )
+    return data
   },
 }

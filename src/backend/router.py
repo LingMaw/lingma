@@ -8,6 +8,8 @@ from src.features.monitor.backend.router import router as monitor_router
 from src.features.novel_generator.backend.router import router as novel_generator_router
 from src.features.novel_project.backend.router import router as novel_project_router
 from src.features.novel_outline.backend.router import router as novel_outline_router
+from src.features.outline_parser.backend.router import router as outline_parser_router
+from src.features.chapter_editor.backend.router import router as chapter_editor_router
 from src.features.user.backend.router import router as auth_router
 
 # 创建主 API 路由
@@ -20,6 +22,8 @@ api_router.include_router(monitor_router, prefix="/monitor", tags=["系统监控
 api_router.include_router(novel_generator_router, prefix="/novel", tags=["AI小说生成器"])
 api_router.include_router(novel_project_router, prefix="/novel_projects", tags=["小说项目管理"])
 api_router.include_router(novel_outline_router, prefix="/novel-projects", tags=["大纲管理"])
+api_router.include_router(outline_parser_router, tags=["大纲解析"])
+api_router.include_router(chapter_editor_router, prefix="/chapter-editor", tags=["章节编辑器"])
 
 
 @api_router.get("/info", tags=["系统信息"])

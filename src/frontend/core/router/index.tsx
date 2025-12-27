@@ -12,7 +12,9 @@ import ChapterListPage from '@/features/novel_project/frontend/pages/ChapterList
 import ChapterEditPage from '@/features/novel_project/frontend/pages/ChapterEditPage'
 import ChapterDetailPage from '@/features/novel_project/frontend/pages/ChapterDetailPage'
 import OutlineEditorPage from '@/features/novel_outline/frontend/pages/OutlineEditorPage'
+import OutlineParserPage from '@/features/outline_parser/frontend/pages/OutlineParserPage'
 import ProfilePage from '@/features/user/frontend/pages/ProfilePage'
+import ChapterEditorPage from '@/features/chapter_editor/frontend/pages/ChapterEditorPage'
 
 import ProtectedRoute from './ProtectedRoute'
 
@@ -37,9 +39,11 @@ const router = createHashRouter([
       { path: '/novel_projects/:id', element: <NovelProjectViewPage /> },
       { path: '/novel_projects/:id/chapters', element: <ChapterListPage /> },
       { path: '/novel_projects/:id/outline', element: <OutlineEditorPage /> },
+      { path: '/novel_projects/:projectId/outline-parser', element: <OutlineParserPage /> },
       { path: '/novel_projects/:id/chapter/create', element: <ChapterEditPage /> },
       { path: '/novel_projects/:id/chapter/:chapterId/edit', element: <ChapterEditPage /> },
       { path: '/novel_projects/:id/chapter/:chapterId', element: <ChapterDetailPage /> },
+      { path: '/chapter-editor/:chapterId', element: <ChapterEditorPage /> },
     ],
   },
   {

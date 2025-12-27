@@ -60,6 +60,7 @@ export default function OutlineEditorPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [nodeToDelete, setNodeToDelete] = useState<number | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [syncStatusMessage, setSyncStatusMessage] = useState<string>('')
   
   // AI生成相关状态
   const [generatorOpen, setGeneratorOpen] = useState(false)
@@ -126,9 +127,19 @@ export default function OutlineEditorPage() {
   const handleSaveNode = useCallback(
     async (data: OutlineNodeCreate | OutlineNodeUpdate) => {
       if (editorMode === 'create') {
-        await createNode(data as OutlineNodeCreate)
+        const result = await createNode(data as OutlineNodeCreate)
+        // 如果是chapter类型，显示同步提示
+        if ((data as OutlineNodeCreate).node_type === 'chapter') {
+          setSyncStatusMessage('章节节点已创建，章节记录已自动同步')
+          setTimeout(() => setSyncStatusMessage(''), 3000)
+        }
       } else if (selectedNode) {
         await updateNode(selectedNode.id, data as OutlineNodeUpdate)
+        // 如果是chapter类型，显示同步提示
+        if (selectedNode.node_type === 'chapter') {
+          setSyncStatusMessage('章节节点已更新，章节记录已自动同步')
+          setTimeout(() => setSyncStatusMessage(''), 3000)
+        }
       }
     },
     [editorMode, selectedNode, createNode, updateNode]
@@ -147,6 +158,8 @@ export default function OutlineEditorPage() {
         await deleteNode(nodeToDelete, true)
         setDeleteDialogOpen(false)
         setNodeToDelete(null)
+        setSyncStatusMessage('节点已删除，关联的章节记录已自动清理')
+        setTimeout(() => setSyncStatusMessage(''), 3000)
       } catch (error) {
         console.error('Delete failed:', error)
       }
@@ -215,6 +228,8 @@ export default function OutlineEditorPage() {
 
         // 7. 刷新树以显示最新顺序
         await refreshTree()
+        setSyncStatusMessage('节点顺序已调整，章节编号已自动更新')
+        setTimeout(() => setSyncStatusMessage(''), 3000)
 
       } catch (error) {
         console.error('Move operation failed:', error)
@@ -370,6 +385,20 @@ export default function OutlineEditorPage() {
               AI生成失败
             </Typography>
             <Typography variant="body2">{generateError}</Typography>
+          </Alert>
+        )}
+        
+        {/* 同步状态提示 */}
+        {syncStatusMessage && (
+          <Alert
+            severity="success"
+            onClose={() => setSyncStatusMessage('')}
+            sx={{
+              mb: 3,
+              borderRadius: 3,
+            }}
+          >
+            {syncStatusMessage}
           </Alert>
         )}
         

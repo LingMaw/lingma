@@ -4,9 +4,12 @@ import type { components } from '@/frontend/core/types/generated'
 
 // 从生成的类型中提取需要的类型
 type ChapterResponse = components['schemas']['ChapterResponse']
-type ChapterListResponse = components['schemas']['ChapterListResponse']
+type ChapterListItemResponse = components['schemas']['ChapterListItemResponse']
 type ChapterCreate = components['schemas']['ChapterCreate']
 type ChapterUpdate = components['schemas']['ChapterUpdate']
+type OutlineChapterListResponse = components['schemas']['OutlineChapterListResponse']
+type ChapterGenerateRequest = components['schemas']['ChapterGenerateRequest']
+type ChapterWithMetadata = components['schemas']['ChapterWithMetadata']
 
 /**
  * 章节管理API
@@ -29,8 +32,8 @@ export const chapterAPI = {
    * 获取章节列表
    * @param projectId 项目ID
    */
-  async getChapters(projectId: number): Promise<ChapterListResponse> {
-    const response: AxiosResponse<ChapterListResponse> = await httpClient.get(
+  async getChapters(projectId: number): Promise<ChapterListItemResponse> {
+    const response: AxiosResponse<ChapterListItemResponse> = await httpClient.get(
       `/novel_projects/${projectId}/chapters/`
     )
     return response.data
@@ -41,8 +44,8 @@ export const chapterAPI = {
    * @param projectId 项目ID
    * @param chapterId 章节ID
    */
-  async getChapter(projectId: number, chapterId: string): Promise<ChapterResponse> {
-    const response: AxiosResponse<ChapterResponse> = await httpClient.get(
+  async getChapter(projectId: number, chapterId: string): Promise<ChapterWithMetadata> {
+    const response: AxiosResponse<ChapterWithMetadata> = await httpClient.get(
       `/novel_projects/${projectId}/chapters/${chapterId}`
     )
     return response.data
@@ -84,5 +87,58 @@ export const chapterAPI = {
     await httpClient.put(`/novel_projects/${projectId}/chapters/order`, {
       chapter_ids: chapterIds
     })
+  },
+
+  /**
+   * 获取可绑定的大纲章节列表
+   * @param projectId 项目ID
+   */
+  async getOutlineChapters(projectId: number): Promise<OutlineChapterListResponse> {
+    const response: AxiosResponse<OutlineChapterListResponse> = await httpClient.get(
+      `/novel_projects/${projectId}/outline-chapters`
+    )
+    return response.data
+  },
+
+  /**
+   * AI生成章节内容（流式）
+   * @param projectId 项目ID
+   * @param chapterId 章节UUID
+   * @param params 生成参数
+   * @param signal AbortSignal用于取消请求
+   */
+  async generateChapterStream(
+    projectId: number,
+    chapterId: string,
+    params: ChapterGenerateRequest,
+    signal?: AbortSignal
+  ): Promise<Response> {
+    // 直接使用fetch调用SSE接口
+    const baseURL = httpClient.defaults.baseURL || ''
+    const url = `${baseURL}/novel_projects/${projectId}/chapters/${chapterId}/generate`
+    
+    // 构建fetch兼容的headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    
+    // 添加Authorization token（复用httpClient的逻辑）
+    const token = localStorage.getItem('token')
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(params),
+      signal
+    })
+    
+    if (!response.ok) {
+      throw new Error(`生成失败: ${response.statusText}`)
+    }
+    
+    return response
   }
 }

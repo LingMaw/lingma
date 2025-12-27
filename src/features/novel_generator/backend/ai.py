@@ -70,6 +70,7 @@ class AIService:
             title: 小说标题
             genre: 小说类型
             style: 写作风格
+            requirement: 要求
             
         Yields:
             str: 生成的小说内容片段
@@ -131,6 +132,7 @@ class AIService:
             title: 小说标题
             genre: 小说类型
             style: 写作风格
+            requirement: 要求
 
         Returns:
             str: 构建好的提示词

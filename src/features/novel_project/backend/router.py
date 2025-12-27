@@ -6,6 +6,7 @@ import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, Query
+from fastapi.responses import StreamingResponse
 from tortoise.exceptions import DoesNotExist
 
 from src.backend.core.dependencies import CurrentUserId
@@ -22,8 +23,20 @@ from .schemas import (
     ChapterUpdate,
     ChapterResponse,
     ChapterListResponse,
-    ChapterOrderUpdate
+    ChapterOrderUpdate,
+    OutlineChapterListResponse,
+    ChapterGenerateRequest,
+    ChapterWithMetadata,
+    ChapterListItem,
+    ChapterListItemResponse,
 )
+from .services import (
+    OutlineChapterQueryService,
+    ChapterAIGenerationService,
+    validate_outline_node_binding,
+    ChapterQueryService,
+)
+from src.features.novel_generator.backend.ai import AIService
 
 router = APIRouter()
 
@@ -245,7 +258,11 @@ async def save_novel_content(
     else:
         return project
 
-@router.post("/{project_id}/chapters/", response_model=ChapterResponse, summary="创建章节")
+@router.post(
+    "/{project_id}/chapters/",
+    response_model=ChapterResponse,
+    summary="创建章节"
+)
 async def create_chapter(
     project_id: int,
     chapter_data: ChapterCreate,
@@ -262,101 +279,192 @@ async def create_chapter(
     Returns:
         ChapterResponse: 创建的章节信息
     """
-    logger.info(f"用户 {user_id} 为项目 {project_id} 创建章节: {chapter_data.title}")
+    logger.info(f"用户 {user_id} 创建章节: 项目 {project_id}")
     
     try:
         # 验证项目存在且属于当前用户
         project = await NovelProject.get(id=project_id, user_id=user_id)
         
-        # 生成章节UUID
-        if not chapter_data.chapter_id:
-            chapter_id = str(uuid.uuid4())
-        else:
-            chapter_id = chapter_data.chapter_id
-            
-        # 设置章节序号（如果没有提供或使用特殊标记-1）
-        chapter_number = chapter_data.chapter_number
-        if chapter_number is None or chapter_number == -1:
-            # 获取项目中最大的章节序号
-            max_chapter = await Chapter.filter(project_id=project_id).order_by("-chapter_number").first()
-            chapter_number = (max_chapter.chapter_number + 1) if max_chapter else 1
+        # 如果提供了outline_node_id,验证绑定
+        if chapter_data.outline_node_id is not None:
+            await validate_outline_node_binding(
+                outline_node_id=chapter_data.outline_node_id,
+                project_id=project_id,
+                current_chapter_id=None
+            )
         
-        # 检查序号是否已存在
-        existing_chapter = await Chapter.filter(project_id=project_id, chapter_number=chapter_number).first()
-        if existing_chapter:
-            raise APIError(code="DUPLICATE_CHAPTER_NUMBER", message=f"项目中已存在序号为 {chapter_number} 的章节", status_code=400)
-            
+        # 生成UUID作为章节ID
+        chapter_id = str(uuid.uuid4())
+        
         # 创建章节
         chapter = await Chapter.create(
             chapter_id=chapter_id,
-            chapter_number=chapter_number,
             title=chapter_data.title,
-            content=chapter_data.content,
-            project_id=project_id  # 添加项目ID
+            chapter_number=chapter_data.chapter_number,
+            project_id=project_id,
+            content=chapter_data.content or "",
+            outline_node_id=chapter_data.outline_node_id,
+            outline_description=chapter_data.outline_description,
         )
         
-        # 将章节ID添加到项目章节ID列表中
+        # 将章节ID添加到项目的章节ID列表中
         project.chapter_ids.append(chapter_id)
         await project.save()
         
         logger.info(f"章节创建成功: {chapter.id} - {chapter.title}")
+        return chapter
+        
     except DoesNotExist as e:
         logger.warning(f"小说项目不存在或无权限: {project_id}")
         raise APIError(code="PROJECT_NOT_FOUND", message="项目不存在或无权限访问", status_code=404) from e
     except APIError:
-        # 重新抛出已知的API错误
         raise
     except Exception as e:
         logger.error(f"创建章节失败: {e}")
         raise APIError(code="CREATE_FAILED", message=f"创建章节失败: {e!s}") from e
-    else:
-        return chapter
 
 
-@router.get("/{project_id}/chapters/", response_model=ChapterListResponse, summary="获取章节列表")
-async def list_chapters(
+@router.get("/{project_id}/outline-chapters", response_model=OutlineChapterListResponse, summary="获取可绑定的大纲章节")
+async def get_outline_chapters(
     project_id: int,
     user_id: CurrentUserId,
 ):
     """
-    获取指定小说项目的所有章节
+    获取项目下所有chapter类型的OutlineNode及其绑定状态
     
     Args:
         project_id: 项目ID
         user_id: 当前用户ID
         
     Returns:
-        ChapterListResponse: 章节列表
+        OutlineChapterListResponse: 章节节点列表
+    """
+    logger.info(f"用户 {user_id} 查询项目 {project_id} 的大纲章节")
+    
+    try:
+        # 验证项目存在且属于当前用户
+        await NovelProject.get(id=project_id, user_id=user_id)
+        
+        # 调用服务查询
+        result = await OutlineChapterQueryService.get_outline_chapters(project_id)
+        
+        logger.info(f"查询到 {result.total} 个章节节点")
+        return result
+        
+    except DoesNotExist as e:
+        logger.warning(f"小说项目不存在或无权限: {project_id}")
+        raise APIError(code="PROJECT_NOT_FOUND", message="项目不存在或无权限访问", status_code=404) from e
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"查询大纲章节失败: {e}")
+        raise APIError(code="QUERY_FAILED", message=f"查询大纲章节失败: {e!s}") from e
+
+
+@router.post("/{project_id}/chapters/{chapter_id}/generate", summary="AI生成章节内容")
+async def generate_chapter_content(
+    project_id: int,
+    chapter_id: str,
+    request_data: ChapterGenerateRequest,
+    user_id: CurrentUserId,
+):
+    """
+    使用AI流式生成章节内容
+    
+    Args:
+        project_id: 项目ID
+        chapter_id: 章节UUID
+        request_data: 生成请求参数
+        user_id: 当前用户ID
+        
+    Returns:
+        StreamingResponse: SSE流式响应
+    """
+    logger.info(f"用户 {user_id} 请求生成章节内容: 项目 {project_id}, 章节 {chapter_id}")
+    
+    try:
+        # 验证项目存在且属于当前用户
+        await NovelProject.get(id=project_id, user_id=user_id)
+        
+        # 创建AI服务实例
+        ai_service = AIService()
+        generation_service = ChapterAIGenerationService(ai_service)
+        
+        # 调用生成服务
+        async def event_generator():
+            async for chunk in generation_service.generate_chapter_stream(
+                chapter_id=chapter_id,
+                project_id=project_id,
+                outline_node_id=request_data.outline_node_id,
+                genre=request_data.genre,
+                style=request_data.style,
+                requirement=request_data.requirement,
+                use_sections=request_data.use_sections
+            ):
+                yield f"data: {chunk}\n\n"
+        
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            }
+        )
+        
+    except DoesNotExist as e:
+        logger.warning(f"小说项目不存在或无权限: {project_id}")
+        raise APIError(code="PROJECT_NOT_FOUND", message="项目不存在或无权限访问", status_code=404) from e
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"生成章节内容失败: {e}")
+        raise APIError(code="GENERATE_FAILED", message=f"生成章节内容失败: {e!s}") from e
+
+
+@router.get("/{project_id}/chapters/", response_model=ChapterListItemResponse, summary="获取章节列表")
+async def list_chapters(
+    project_id: int,
+    user_id: CurrentUserId,
+):
+    """
+    获取指定小说项目的所有章节（使用新查询服务）
+    
+    Args:
+        project_id: 项目ID
+        user_id: 当前用户ID
+        
+    Returns:
+        ChapterListItemResponse: 章节列表（包含运行时计算的编号和标题）
     """
     logger.info(f"用户 {user_id} 获取项目 {project_id} 的章节列表")
     
     try:
         # 验证项目存在且属于当前用户
-        project = await NovelProject.get(id=project_id, user_id=user_id)
+        await NovelProject.get(id=project_id, user_id=user_id)
         
-        # 获取所有章节
-        chapters = await Chapter.filter(chapter_id__in=project.chapter_ids).order_by("chapter_number").all()
-        total = len(chapters)
+        # ✅ 使用新查询服务（运行时计算编号）
+        chapters = await ChapterQueryService.list_chapters_by_project(project_id)
         
-        logger.info(f"获取到 {total} 个章节")
+        logger.info(f"获取到 {len(chapters)} 个章节")
+        return ChapterListItemResponse(total=len(chapters), items=chapters)
+        
     except DoesNotExist as e:
         logger.warning(f"小说项目不存在或无权限: {project_id}")
         raise APIError(code="PROJECT_NOT_FOUND", message="项目不存在或无权限访问", status_code=404) from e
     except Exception as e:
         logger.error(f"获取章节列表失败: {e}")
         raise APIError(code="LIST_FAILED", message=f"获取章节列表失败: {e!s}") from e
-    else:
-        return ChapterListResponse(total=total, items=chapters)
 
 
-@router.get("/{project_id}/chapters/{chapter_id}", response_model=ChapterResponse, summary="获取章节详情")
+@router.get("/{project_id}/chapters/{chapter_id}", response_model=ChapterWithMetadata, summary="获取章节详情")
 async def get_chapter(
     project_id: int,
     chapter_id: str,
     user_id: CurrentUserId,
 ):
     """
-    获取指定章节的详细信息
+    获取指定章节的详细信息（包含运行时计算的元数据）
     
     Args:
         project_id: 项目ID
@@ -364,31 +472,26 @@ async def get_chapter(
         user_id: 当前用户ID
         
     Returns:
-        ChapterResponse: 章节详细信息
+        ChapterWithMetadata: 章节详细信息
     """
     logger.info(f"用户 {user_id} 获取章节详情: 项目 {project_id}, 章节 {chapter_id}")
     
     try:
         # 验证项目存在且属于当前用户
-        project = await NovelProject.get(id=project_id, user_id=user_id)
+        await NovelProject.get(id=project_id, user_id=user_id)
         
-        # 检查章节是否属于该项目
-        if chapter_id not in project.chapter_ids:
-            raise APIError(code="CHAPTER_NOT_FOUND", message="章节不存在或不属于该项目", status_code=404)
+        # ✅ 使用新查询服务
+        chapter = await ChapterQueryService.get_chapter_with_metadata(chapter_id)
         
-        # 获取章节
-        chapter = await Chapter.get(chapter_id=chapter_id)
+        return chapter
+        
     except DoesNotExist as e:
-        logger.warning(f"小说项目不存在或无权限: {project_id}")
         raise APIError(code="PROJECT_NOT_FOUND", message="项目不存在或无权限访问", status_code=404) from e
     except APIError:
-        # 重新抛出已知的API错误
         raise
     except Exception as e:
         logger.error(f"获取章节详情失败: {e}")
         raise APIError(code="GET_FAILED", message=f"获取章节详情失败: {e!s}") from e
-    else:
-        return chapter
 
 
 @router.put("/{project_id}/chapters/{chapter_id}", response_model=ChapterResponse, summary="更新章节")
@@ -423,6 +526,15 @@ async def update_chapter(
         # 获取章节
         chapter = await Chapter.get(chapter_id=chapter_id)
         
+        # 如果提供了outline_node_id,验证绑定
+        update_data = chapter_data.dict(exclude_unset=True)
+        if 'outline_node_id' in update_data and update_data['outline_node_id'] is not None:
+            await validate_outline_node_binding(
+                outline_node_id=update_data['outline_node_id'],
+                project_id=project_id,
+                current_chapter_id=chapter_id
+            )
+        
         # 检查序号是否已存在（如果是更新序号的话）
         if 'chapter_number' in update_data and update_data['chapter_number'] != chapter.chapter_number:
             existing_chapter = await Chapter.filter(
@@ -434,7 +546,6 @@ async def update_chapter(
                 raise APIError(code="DUPLICATE_CHAPTER_NUMBER", message=f"项目中已存在序号为 {update_data['chapter_number']} 的章节", status_code=400)
         
         # 更新字段
-        update_data = chapter_data.dict(exclude_unset=True)
         for field, value in update_data.items():
             setattr(chapter, field, value)
         

@@ -14,6 +14,7 @@ import {
   Stack,
   Fade,
   Collapse,
+  Chip,
   type Theme,
 } from '@mui/material'
 import {
@@ -26,6 +27,7 @@ import {
   AddCircleOutline as AddIcon,
   ArrowUpward as MoveUpIcon,
   ArrowDownward as MoveDownIcon,
+  InfoOutlined as InfoIcon,
 } from '@mui/icons-material'
 import type { OutlineNodeWithChildren } from '../api'
 
@@ -293,6 +295,42 @@ export default function OutlineNodeItem({
         >
           {node.title}
         </Typography>
+
+        {/* 5.5. 章节编号和特殊标识 */}
+        {node.node_type === 'chapter' && node.chapter_number && (
+          <Chip
+            label={`第${node.chapter_number}章`}
+            size="small"
+            sx={{
+              height: 20,
+              fontSize: '11px',
+              fontWeight: 600,
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              color: 'primary.main',
+              mr: 0.5,
+              '& .MuiChip-label': { px: 1 },
+            }}
+          />
+        )}
+        {node.node_type === 'section' && (
+          <Tooltip title="小节不会创建章节记录，内容将合并到父章节" arrow>
+            <Chip
+              icon={<InfoIcon sx={{ fontSize: 12 }} />}
+              label="仅大纲"
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: '10px',
+                fontWeight: 500,
+                bgcolor: alpha(theme.palette.text.secondary, 0.08),
+                color: 'text.secondary',
+                mr: 0.5,
+                '& .MuiChip-label': { px: 0.8 },
+                '& .MuiChip-icon': { ml: 0.5 },
+              }}
+            />
+          </Tooltip>
+        )}
 
         {/* 
            6. 右侧区域 (包含操作按钮 + 字数) 

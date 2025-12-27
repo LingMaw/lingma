@@ -459,7 +459,7 @@ const ProjectViewPage: React.FC = () => {
                                             }}>
                                                 {chapters.map((chapter, index) => (
                                                     <Paper 
-                                                        key={chapter.chapter_id}
+                                                        key={chapter.chapter_id || `chapter-${index}`}
                                                         elevation={0}
                                                         onClick={() => navigate(`/novel_projects/${id}/chapter/${chapter.chapter_id}`)}
                                                         sx={{

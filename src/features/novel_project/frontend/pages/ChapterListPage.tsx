@@ -13,22 +13,26 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   IconButton,
-  Divider,
-  Grid2,
   useTheme,
-  alpha
+  alpha,
+  Chip,
+  Tooltip,
+  Stack,
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { novelProjectAPI } from '@/features/novel_project/frontend'
 import { chapterAPI } from '@/features/novel_project/frontend/chapter_api'
+import { chapterEditorAPI } from '@/features/chapter_editor/frontend'
 import { containerVariants, itemVariants, scaleVariants } from '@/frontend/core/animation'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import AddIcon from '@mui/icons-material/Add'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 
 const ChapterListPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>()
@@ -37,7 +41,6 @@ const ChapterListPage: React.FC = () => {
   const [projectTitle, setProjectTitle] = useState('')
   const [chapters, setChapters] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [snackbarOpen, setSnackbarOpen] = useState(false)
   
@@ -45,7 +48,15 @@ const ChapterListPage: React.FC = () => {
   const theme = useTheme()
   
   const handleViewChapter = (chapterId: string) => {
+    if (!chapterId) {
+      console.error('章节ID为空，无法跳转')
+      return
+    }
     navigate(`/novel_projects/${projectId}/chapter/${chapterId}`)
+  }
+  
+  const handleViewOutline = () => {
+    navigate(`/novel_projects/${projectId}/outline`)
   }
   
   useEffect(() => {
@@ -78,12 +89,29 @@ const ChapterListPage: React.FC = () => {
     }
   }
   
-  const handleCreateChapter = () => {
-    navigate(`/novel_projects/${projectId}/chapter/create`)
+  const handleCreateChapter = async () => {
+    try {
+      // 使用新的章节编辑器 API 创建章节
+      const newChapter = await chapterEditorAPI.createChapter({
+        title: '新章节',
+        project_id: projectId,
+        outline_node_id: null
+      })
+      // 跳转到新的章节编辑器
+      navigate(`/chapter-editor/${newChapter.chapter_id}`)
+    } catch (err) {
+      setError('创建章节失败')
+      setSnackbarOpen(true)
+    }
   }
   
   const handleEditChapter = (chapterId: string) => {
-    navigate(`/novel_projects/${projectId}/chapter/${chapterId}/edit`)
+    if (!chapterId) {
+      console.error('章节ID为空，无法编辑')
+      return
+    }
+    // 跳转到新的章节编辑器
+    navigate(`/chapter-editor/${chapterId}`)
   }
   
   const handleDeleteChapter = async (chapterId: string) => {
@@ -157,28 +185,38 @@ const ChapterListPage: React.FC = () => {
             <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
               {projectTitle} - 章节管理
             </Typography>
-            <motion.div variants={scaleVariants} whileHover="hover" whileTap="tap">
+            <Stack direction="row" spacing={1}>
               <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleCreateChapter}
-                sx={{
-                  borderRadius: 3,
-                  py: 1,
-                  px: 3,
-                  fontWeight: 600,
-                  background: (theme) =>
-                    `linear-gradient(135deg, ${theme.palette.primary.light} 0%, ${theme.palette.primary.main} 100%)`,
-                  boxShadow: (theme) => `0 4px 16px ${alpha(theme.palette.primary.main, 0.2)}`,
-                  '&:hover': {
-                    background: (theme) =>
-                      `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.8)} 0%, ${theme.palette.primary.main} 100%)`,
-                  }
-                }}
+                variant="outlined"
+                startIcon={<AccountTreeIcon />}
+                onClick={handleViewOutline}
+                sx={{ borderRadius: 3 }}
               >
-                新建章节
+                大纲编辑
               </Button>
-            </motion.div>
+              <motion.div variants={scaleVariants} whileHover="hover" whileTap="tap">
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleCreateChapter}
+                  sx={{
+                    borderRadius: 3,
+                    py: 1,
+                    px: 3,
+                    fontWeight: 600,
+                    background: (theme) =>
+                      `linear-gradient(135deg, ${theme.palette.primary.light} 0%, ${theme.palette.primary.main} 100%)`,
+                    boxShadow: (theme) => `0 4px 16px ${alpha(theme.palette.primary.main, 0.2)}`,
+                    '&:hover': {
+                      background: (theme) =>
+                        `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.8)} 0%, ${theme.palette.primary.main} 100%)`,
+                    }
+                  }}
+                >
+                  新建章节
+                </Button>
+              </motion.div>
+            </Stack>
           </Box>
           
           <Box sx={{ flex: 1, overflow: 'auto' }}>
@@ -216,12 +254,16 @@ const ChapterListPage: React.FC = () => {
                       {(provided) => (
                         <List {...provided.droppableProps} ref={provided.innerRef}>
                           {chapters.map((chapter, index) => (
-                            <Draggable key={chapter.chapter_id} draggableId={chapter.chapter_id} index={index}>
+                            <Draggable 
+                              key={chapter.chapter_id || `chapter-${index}`} 
+                              draggableId={chapter.chapter_id || `chapter-${index}`} 
+                              index={index}
+                            >
                               {(provided) => (
                                 <ListItem
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
-                                  onClick={() => handleViewChapter(chapter.chapter_id)}
+                                  onClick={() => chapter.chapter_id && handleViewChapter(chapter.chapter_id)}
                                   sx={{
                                     pl: 1,
                                     bgcolor: 'background.paper',
@@ -240,14 +282,41 @@ const ChapterListPage: React.FC = () => {
                                   </IconButton>
                                   <ListItemText
                                     primary={
-                                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                        第{chapter.chapter_number !== null ? chapter.chapter_number : ''}章 {chapter.title}
-                                      </Typography>
+                                      <Stack direction="row" alignItems="center" spacing={1}>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                          第{chapter.chapter_number !== null ? chapter.chapter_number : ''}章 {chapter.title}
+                                        </Typography>
+                                        {chapter.outline_node_id && (
+                                          <Tooltip title="此章节由大纲系统自动创建并同步" arrow>
+                                            <Chip
+                                              icon={<AccountTreeIcon sx={{ fontSize: 12 }} />}
+                                              label="大纲同步"
+                                              size="small"
+                                              sx={{
+                                                height: 20,
+                                                fontSize: '10px',
+                                                bgcolor: alpha(theme.palette.success.main, 0.1),
+                                                color: 'success.main',
+                                                '& .MuiChip-label': { px: 0.8 },
+                                                '& .MuiChip-icon': { ml: 0.5 },
+                                              }}
+                                            />
+                                          </Tooltip>
+                                        )}
+                                      </Stack>
                                     }
                                     secondary={
-                                      <Typography variant="body2" color="text.secondary">
-                                        更新于 {formatDate(chapter.updated_at)}
-                                      </Typography>
+                                      <Stack direction="column" spacing={0.5}>
+                                        <Typography variant="body2" color="text.secondary">
+                                          更新于 {formatDate(chapter.updated_at)}
+                                        </Typography>
+                                        {chapter.outline_node_id && (
+                                          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <InfoOutlinedIcon sx={{ fontSize: 12 }} />
+                                            大纲节点ID: {chapter.outline_node_id}
+                                          </Typography>
+                                        )}
+                                      </Stack>
                                     }
                                   />
                                   <ListItemSecondaryAction>
@@ -255,7 +324,9 @@ const ChapterListPage: React.FC = () => {
                                       edge="end" 
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleEditChapter(chapter.chapter_id);
+                                        if (chapter.chapter_id) {
+                                          handleEditChapter(chapter.chapter_id);
+                                        }
                                       }}
                                       sx={{ mr: 1 }}
                                     >
@@ -265,7 +336,9 @@ const ChapterListPage: React.FC = () => {
                                       edge="end" 
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDeleteChapter(chapter.chapter_id);
+                                        if (chapter.chapter_id) {
+                                          handleDeleteChapter(chapter.chapter_id);
+                                        }
                                       }}
                                     >
                                       <DeleteIcon />
