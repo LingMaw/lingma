@@ -7,7 +7,6 @@ import {
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon,
   Palette as PaletteIcon,
-  ReceiptLong as LogsIcon,
   BorderColor as BorderColorIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
@@ -48,7 +47,6 @@ const collapsedDrawerWidth = 72
 
 const menuItems = [
   { path: '/dashboard', text: '仪表盘', icon: <DashboardIcon /> },
-  { path: '/monitor/logs', text: '实时日志', icon: <LogsIcon /> },
   { path: '/novel_generator', text: 'AI小说生成器', icon: <BorderColorIcon /> },
   { path: '/novel_project', text: '小说项目管理', icon: <BorderColorIcon /> },
   { path: '/profile', text: '个人资料', icon: <PersonIcon /> },
