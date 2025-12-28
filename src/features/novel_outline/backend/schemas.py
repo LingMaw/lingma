@@ -82,3 +82,10 @@ class AIOutlineGenerateRequest(BaseModel):
     additional_content: Optional[str] = Field("", description="其他内容/补充说明")
     chapter_count_min: int = Field(10, ge=5, le=100, description="最少章节数")
     chapter_count_max: int = Field(50, ge=5, le=200, description="最多章节数")
+
+
+class OutlineContinueRequest(BaseModel):
+    """AI续写大纲请求"""
+
+    chapter_count: int = Field(..., ge=1, le=100, description="续写章节数")
+    additional_context: Optional[str] = Field("", description="额外上下文/指令")

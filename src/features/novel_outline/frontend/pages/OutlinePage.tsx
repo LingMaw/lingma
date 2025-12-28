@@ -32,6 +32,7 @@ import { outlineAPI } from '../api'
 import type { OutlineNodeResponse, OutlineTreeNode, NodeType } from '../types'
 import OutlineNodeEditor from '../components/OutlineNodeEditor'
 import AIOutlineGenerator from '../components/AIOutlineGenerator'
+import ContinueOutlineGenerator from '../components/ContinueOutlineGenerator'
 
 export default function OutlinePage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -45,7 +46,7 @@ export default function OutlinePage() {
   const [parentNode, setParentNode] = useState<OutlineNodeResponse | null>(null)
   const [creatingType, setCreatingType] = useState<NodeType | null>(null)
   const [aiGeneratorOpen, setAiGeneratorOpen] = useState(false)
-  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null)
+  const [continueGeneratorOpen, setContinueGeneratorOpen] = useState(false)
 
   // 加载大纲节点
   useEffect(() => {
@@ -161,6 +162,11 @@ export default function OutlinePage() {
 
   // AI生成完成后自动刷新
   const handleAIGenerateComplete = async () => {
+    await loadNodes()
+  }
+
+  // AI续写完成后自动刷新
+  const handleContinueComplete = async () => {
     await loadNodes()
   }
 
@@ -335,6 +341,18 @@ export default function OutlinePage() {
             AI生成大纲
           </Button>
           
+          {/* AI续写按钮 */}
+          {treeData.length > 0 && (
+            <Button
+              variant="outlined"
+              startIcon={<AIIcon />}
+              onClick={() => setContinueGeneratorOpen(true)}
+              sx={{ borderRadius: 2 }}
+            >
+              AI续写大纲
+            </Button>
+          )}
+          
           {/* 导出按钮 */}
           <Button
             variant="outlined"
@@ -402,6 +420,15 @@ export default function OutlinePage() {
         onClose={() => setAiGeneratorOpen(false)}
         onComplete={handleAIGenerateComplete}
         projectId={Number(projectId)}
+      />
+
+      {/* AI续写对话框 */}
+      <ContinueOutlineGenerator
+        open={continueGeneratorOpen}
+        onClose={() => setContinueGeneratorOpen(false)}
+        onComplete={handleContinueComplete}
+        projectId={Number(projectId)}
+        hasExistingOutline={treeData.length > 0}
       />
     </Box>
   )

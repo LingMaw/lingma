@@ -11,13 +11,17 @@ type OutlineNodeCreate = components['schemas']['OutlineNodeCreate']
 type OutlineNodeUpdate = components['schemas']['OutlineNodeUpdate']
 type OutlineNodeReorder = components['schemas']['OutlineNodeReorder']
 type SectionHintsResponse = components['schemas']['SectionHintsResponse']
-type AIOutlineGenerateRequest = components['schemas']['AIOutlineGenerateRequest']
 
 export interface AIGenerateParams {
   key_plots?: string[]
   additional_content?: string
   chapter_count_min?: number
   chapter_count_max?: number
+}
+
+export interface ContinueOutlineParams {
+  chapter_count: number
+  additional_context?: string
 }
 
 export interface OutlineExportData {
@@ -229,5 +233,66 @@ export const outlineAPI = {
     a.download = `outline_${projectId}.json`
     a.click()
     window.URL.revokeObjectURL(url)
+  },
+
+  /**
+   * AI续写大纲（SSE流式）
+   */
+  async continueOutlineStream(
+    projectId: number,
+    params: ContinueOutlineParams,
+    userId: number = 1,
+    onMessage: (data: any) => void,
+    onError?: (error: Error) => void,
+    onComplete?: () => void
+  ): Promise<void> {
+    try {
+      const response = await fetch(
+        `/api/novels/outline/projects/${projectId}/continue?user_id=${userId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(params),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error('Response body is null')
+      }
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) {
+          onComplete?.()
+          break
+        }
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              onMessage(data)
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      onError?.(error as Error)
+      throw error
+    }
   },
 }
