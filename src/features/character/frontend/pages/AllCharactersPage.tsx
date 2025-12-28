@@ -27,6 +27,8 @@ import {
   IconButton,
   Tooltip,
   Fade,
+  Tabs,
+  Tab,
 } from '@mui/material'
 import Grid2 from '@mui/material/Grid2'
 import {
@@ -45,7 +47,11 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { containerVariants, itemVariants, pageVariants, scaleVariants } from '@/frontend/core/animation'
 import { characterAPI, characterTemplateAPI } from '@/features/character/frontend/api'
+import { novelProjectAPI } from '@/features/novel_project/frontend/api'
 import type { Character, CharacterTemplate } from '@/features/character/frontend/types'
+import type { components } from '@/frontend/core/types/generated'
+
+type NovelProjectResponse = components['schemas']['NovelProjectResponse']
 
 // 性别图标组件
 function GenderIcon({ gender }: { gender?: string }) {
@@ -66,11 +72,18 @@ export default function AllCharactersPage() {
 
   const [characters, setCharacters] = useState<Character[]>([])
   const [templates, setTemplates] = useState<CharacterTemplate[]>([])
+  const [projects, setProjects] = useState<Map<number, NovelProjectResponse>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
+  const [currentTab, setCurrentTab] = useState<'public' | 'project'>(0 as any)
+
+  // 初始化标签页
+  useEffect(() => {
+    setCurrentTab('public')
+  }, [])
 
   // 创建角色对话框状态
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -88,6 +101,23 @@ export default function AllCharactersPage() {
       setLoading(true)
       const charactersData = await characterAPI.list(undefined, true)
       setCharacters(charactersData)
+      
+      // 加载角色关联的项目信息
+      const projectIds = [...new Set(charactersData.map(c => c.project_id).filter(Boolean))] as number[]
+      if (projectIds.length > 0) {
+        const projectsMap = new Map<number, NovelProjectResponse>()
+        await Promise.all(
+          projectIds.map(async (id) => {
+            try {
+              const project = await novelProjectAPI.getProject(id)
+              projectsMap.set(id, project)
+            } catch (err) {
+              console.error(`加载项目 ${id} 失败:`, err)
+            }
+          })
+        )
+        setProjects(projectsMap)
+      }
     } catch (err) {
       setError('加载角色数据失败')
       console.error(err)
@@ -165,14 +195,42 @@ export default function AllCharactersPage() {
     return Array.from(cats)
   }, [characters])
 
-  // 过滤角色
+  // 按标签页和搜索条件过滤角色
   const filteredCharacters = useMemo(() => {
     return characters.filter((char) => {
       const matchesSearch = char.name.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesCategory = !categoryFilter || char.basic_info?.category === categoryFilter
-      return matchesSearch && matchesCategory
+      const matchesTab = currentTab === 'public' ? !char.project_id : !!char.project_id
+      return matchesSearch && matchesCategory && matchesTab
     })
-  }, [characters, searchQuery, categoryFilter])
+  }, [characters, searchQuery, categoryFilter, currentTab])
+
+  // 公共角色
+  const publicCharacters = useMemo(() => {
+    return characters.filter((char) => !char.project_id)
+  }, [characters])
+
+  // 项目专属角色（按项目分组）
+  const projectCharactersGrouped = useMemo(() => {
+    const grouped = new Map<number, Character[]>()
+    characters
+      .filter((char) => char.project_id)
+      .forEach((char) => {
+        if (!char.project_id) return
+        if (!grouped.has(char.project_id)) {
+          grouped.set(char.project_id, [])
+        }
+        grouped.get(char.project_id)!.push(char)
+      })
+    return grouped
+  }, [characters])
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: 'public' | 'project') => {
+    setCurrentTab(newValue)
+    // 切换标签页时清空搜索和筛选
+    setSearchQuery('')
+    setCategoryFilter(null)
+  }
 
   return (
     <Container
@@ -257,6 +315,93 @@ export default function AllCharactersPage() {
           </Button>
         </Stack>
       </Box>
+
+      {/* 标签页导航 */}
+      <Card
+        component={motion.div}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        sx={{
+          mb: 3,
+          borderRadius: 4,
+          backdropFilter: 'blur(20px)',
+          backgroundColor: alpha(theme.palette.background.paper, 0.8),
+          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          overflow: 'hidden',
+        }}
+      >
+        <Tabs
+          value={currentTab}
+          onChange={handleTabChange}
+          sx={{
+            px: { xs: 2, sm: 3 },
+            '& .MuiTabs-indicator': {
+              height: 3,
+              borderRadius: '3px 3px 0 0',
+            },
+          }}
+        >
+          <Tab
+            label={
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Typography variant="body1" fontWeight={600}>
+                  公共角色
+                </Typography>
+                <Chip
+                  label={publicCharacters.length}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    backgroundColor:
+                      currentTab === 'public'
+                        ? alpha(theme.palette.primary.main, 0.15)
+                        : alpha(theme.palette.text.secondary, 0.1),
+                    color: currentTab === 'public' ? 'primary.main' : 'text.secondary',
+                  }}
+                />
+              </Stack>
+            }
+            value="public"
+            sx={{
+              textTransform: 'none',
+              fontSize: '1rem',
+              py: 2,
+            }}
+          />
+          <Tab
+            label={
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Typography variant="body1" fontWeight={600}>
+                  项目专属
+                </Typography>
+                <Chip
+                  label={characters.filter((c) => c.project_id).length}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    backgroundColor:
+                      currentTab === 'project'
+                        ? alpha(theme.palette.primary.main, 0.15)
+                        : alpha(theme.palette.text.secondary, 0.1),
+                    color: currentTab === 'project' ? 'primary.main' : 'text.secondary',
+                  }}
+                />
+              </Stack>
+            }
+            value="project"
+            sx={{
+              textTransform: 'none',
+              fontSize: '1rem',
+              py: 2,
+            }}
+          />
+        </Tabs>
+      </Card>
 
       {/* 工具栏 - 更现代的搜索和筛选 */}
       <Card
@@ -436,69 +581,195 @@ export default function AllCharactersPage() {
             </Grid2>
           ))}
         </Grid2>
-      ) : filteredCharacters.length === 0 ? (
-        // 空状态 - 更友好的展示
-        <Fade in timeout={500}>
-          <Box
-            sx={{
-              textAlign: 'center',
-              py: { xs: 6, md: 10 },
-              px: 3,
-            }}
-          >
+      ) : currentTab === 'public' ? (
+        // 公共角色标签页
+        filteredCharacters.length === 0 ? (
+          // 空状态
+          <Fade in timeout={500}>
             <Box
               sx={{
-                width: 120,
-                height: 120,
-                mx: 'auto',
-                mb: 3,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
+                textAlign: 'center',
+                py: { xs: 6, md: 10 },
+                px: 3,
               }}
             >
-              <PersonIcon sx={{ fontSize: 56, color: alpha(theme.palette.primary.main, 0.5) }} />
-            </Box>
-            <Typography variant="h6" color="text.primary" fontWeight={600} gutterBottom>
-              {searchQuery || categoryFilter ? '未找到匹配的角色' : '暂无角色'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 400, mx: 'auto' }}>
-              {searchQuery || categoryFilter
-                ? '尝试调整搜索条件或清除筛选'
-                : '点击上方的「创建角色」按钮，开始打造你的第一个角色吧！'}
-            </Typography>
-            {!searchQuery && !categoryFilter && (
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateDialogOpen(true)}
-                sx={{ borderRadius: 3 }}
+              <Box
+                sx={{
+                  width: 120,
+                  height: 120,
+                  mx: 'auto',
+                  mb: 3,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
+                }}
               >
-                创建角色
-              </Button>
-            )}
-          </Box>
-        </Fade>
+                <PersonIcon sx={{ fontSize: 56, color: alpha(theme.palette.primary.main, 0.5) }} />
+              </Box>
+              <Typography variant="h6" color="text.primary" fontWeight={600} gutterBottom>
+                {searchQuery || categoryFilter ? '未找到匹配的公共角色' : '暂无公共角色'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 400, mx: 'auto' }}>
+                {searchQuery || categoryFilter
+                  ? '尝试调整搜索条件或清除筛选'
+                  : '公共角色可以在所有项目中使用。点击「创建角色」创建公共角色。'}
+              </Typography>
+              {!searchQuery && !categoryFilter && (
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => setCreateDialogOpen(true)}
+                  sx={{ borderRadius: 3 }}
+                >
+                  创建角色
+                </Button>
+              )}
+            </Box>
+          </Fade>
+        ) : (
+          <Grid2
+            container
+            spacing={{ xs: 2, sm: 2.5, md: 3 }}
+            component={motion.div}
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+          >
+            {filteredCharacters.map((character) => (
+              <Grid2 key={character.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                <CharacterCard
+                  character={character}
+                  project={character.project_id ? projects.get(character.project_id) : undefined}
+                  onClick={() => navigate(`/characters/${character.id}`)}
+                />
+              </Grid2>
+            ))}
+          </Grid2>
+        )
       ) : (
-        <Grid2
-          container
-          spacing={{ xs: 2, sm: 2.5, md: 3 }}
-          component={motion.div}
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-        >
-          {filteredCharacters.map((character) => (
-            <Grid2 key={character.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-              <CharacterCard
-                character={character}
-                onClick={() => navigate(`/characters/${character.id}`)}
-              />
-            </Grid2>
-          ))}
-        </Grid2>
+        // 项目专属标签页
+        projectCharactersGrouped.size === 0 || filteredCharacters.length === 0 ? (
+          // 空状态
+          <Fade in timeout={500}>
+            <Box
+              sx={{
+                textAlign: 'center',
+                py: { xs: 6, md: 10 },
+                px: 3,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 120,
+                  height: 120,
+                  mx: 'auto',
+                  mb: 3,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
+                }}
+              >
+                <PersonIcon sx={{ fontSize: 56, color: alpha(theme.palette.primary.main, 0.5) }} />
+              </Box>
+              <Typography variant="h6" color="text.primary" fontWeight={600} gutterBottom>
+                {searchQuery || categoryFilter ? '未找到匹配的项目角色' : '暂无项目专属角色'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 400, mx: 'auto' }}>
+                {searchQuery || categoryFilter
+                  ? '尝试调整搜索条件或清除筛选'
+                  : '项目专属角色仅在特定项目中可用。在项目详情页创建专属角色。'}
+              </Typography>
+            </Box>
+          </Fade>
+        ) : (
+          // 按项目分组显示
+          <Stack spacing={4}>
+            {Array.from(projectCharactersGrouped.entries())
+              .filter(([projectId]) => {
+                // 过滤出包含符合搜索条件的角色的项目组
+                const projectChars = projectCharactersGrouped.get(projectId) || []
+                return projectChars.some((char) => filteredCharacters.includes(char))
+              })
+              .map(([projectId, projectChars]) => {
+                const project = projects.get(projectId)
+                const visibleChars = projectChars.filter((char) => filteredCharacters.includes(char))
+
+                return (
+                  <Box
+                    key={projectId}
+                    component={motion.div}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    {/* 项目标题 */}
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={2}
+                      sx={{
+                        mb: 3,
+                        pb: 2,
+                        borderBottom: `2px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 4,
+                          height: 32,
+                          borderRadius: 2,
+                          background: `linear-gradient(180deg, ${theme.palette.primary.main} 0%, ${alpha(theme.palette.primary.main, 0.6)} 100%)`,
+                        }}
+                      />
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" fontWeight={600}>
+                          {project ? project.title : `项目 #${projectId}`}
+                        </Typography>
+                        {project?.description && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {project.description}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Chip
+                        label={`${visibleChars.length} 个角色`}
+                        size="small"
+                        sx={{
+                          borderRadius: 2,
+                          fontWeight: 500,
+                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                          color: 'primary.main',
+                        }}
+                      />
+                    </Stack>
+
+                    {/* 角色网格 */}
+                    <Grid2
+                      container
+                      spacing={{ xs: 2, sm: 2.5, md: 3 }}
+                      component={motion.div}
+                      variants={containerVariants}
+                      initial="hidden"
+                      animate="show"
+                    >
+                      {visibleChars.map((character) => (
+                        <Grid2 key={character.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                          <CharacterCard
+                            character={character}
+                            project={project}
+                            onClick={() => navigate(`/characters/${character.id}`)}
+                          />
+                        </Grid2>
+                      ))}
+                    </Grid2>
+                  </Box>
+                )
+              })}
+          </Stack>
+        )
       )}
       {/* 创建角色对话框 - 现代化样式 */}
       <Dialog
@@ -697,10 +968,11 @@ export default function AllCharactersPage() {
 // 角色卡片组件 - 增强版
 interface CharacterCardProps {
   character: Character
+  project?: NovelProjectResponse
   onClick: () => void
 }
 
-function CharacterCard({ character, onClick }: CharacterCardProps) {
+function CharacterCard({ character, project, onClick }: CharacterCardProps) {
   const theme = useTheme()
   const hasBasicInfo =
     character.basic_info?.gender ||
@@ -765,6 +1037,28 @@ function CharacterCard({ character, onClick }: CharacterCardProps) {
             >
               {character.name}
             </Typography>
+            {/* 显示项目名称 */}
+            {project && (
+              <Chip
+                label={project.title}
+                size="small"
+                icon={<PersonIcon sx={{ fontSize: 14 }} />}
+                sx={{
+                  mt: 0.5,
+                  borderRadius: 2,
+                  fontWeight: 500,
+                  fontSize: '0.65rem',
+                  height: 20,
+                  backgroundColor: alpha(theme.palette.secondary.main, 0.1),
+                  color: 'secondary.main',
+                  border: 'none',
+                  '& .MuiChip-icon': {
+                    fontSize: 14,
+                    color: 'secondary.main',
+                  },
+                }}
+              />
+            )}
           </Box>
           {character.basic_info?.category && (
             <Chip
