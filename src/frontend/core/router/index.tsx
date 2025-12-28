@@ -15,6 +15,9 @@ import OutlinePage from '@/features/novel_outline/frontend/pages/OutlinePage'
 import ChapterListPage from '@/features/chapter/frontend/pages/ChapterListPage'
 import ChapterEditorPage from '@/features/chapter/frontend/pages/ChapterEditorPage'
 
+// 人物设定系统
+import { ProjectCharacterListPage, CharacterDetailPage, AllCharactersPage } from '@/features/character/frontend/pages'
+
 import ProtectedRoute from './ProtectedRoute'
 
 const router = createHashRouter([
@@ -25,7 +28,7 @@ const router = createHashRouter([
         <MainLayout />
       </ProtectedRoute>
     ),
-    errorElement: <Navigate to="/login" />,
+    errorElement: <Navigate to="/" />,
     children: [
       { path: '/', element: <Navigate to="/dashboard" replace /> },
       { path: '/dashboard', element: <DashboardPage /> },
@@ -40,6 +43,10 @@ const router = createHashRouter([
       { path: '/novel_projects/:projectId/outline', element: <OutlinePage /> },
       { path: '/novel_projects/:projectId/chapters', element: <ChapterListPage /> },
       { path: '/novel_projects/:projectId/chapters/:chapterId', element: <ChapterEditorPage /> },
+      // 人物设定路由
+      { path: '/characters', element: <AllCharactersPage /> },
+      { path: '/novel_projects/:projectId/characters', element: <ProjectCharacterListPage /> },
+      { path: '/characters/:characterId', element: <CharacterDetailPage /> },
     ],
   },
   {

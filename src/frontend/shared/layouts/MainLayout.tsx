@@ -49,6 +49,7 @@ const menuItems = [
   { path: '/dashboard', text: '仪表盘', icon: <DashboardIcon /> },
   { path: '/novel_generator', text: 'AI小说生成器', icon: <BorderColorIcon /> },
   { path: '/novel_project', text: '小说项目管理', icon: <BorderColorIcon /> },
+  { path: '/characters', text: '角色管理', icon: <BorderColorIcon /> },
   { path: '/profile', text: '个人资料', icon: <PersonIcon /> },
 ]
 

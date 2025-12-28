@@ -21,9 +21,10 @@ import { chapterAPI } from '@/features/chapter/frontend'
 import { containerVariants, itemVariants } from '@/frontend/core/animation'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
-import BookIcon from '@mui/icons-material/Book'
+import BookIcon from '@mui/icons-material/Book' 
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import ListAltIcon from '@mui/icons-material/ListAlt'
+import PersonIcon from '@mui/icons-material/Person'
 
 const ProjectViewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>()
@@ -169,7 +170,7 @@ const ProjectViewPage: React.FC = () => {
                         <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
                             项目详情
                         </Typography>
-                        <Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
                             {project?.use_chapter_system && (
                                 <Button
                                     variant="contained"
@@ -179,7 +180,6 @@ const ProjectViewPage: React.FC = () => {
                                         borderRadius: 3,
                                         py: 1,
                                         px: 2,
-                                        mr: 1,
                                         fontWeight: 600,
                                         background: (theme) =>
                                             `linear-gradient(135deg, ${theme.palette.secondary.light} 0%, ${theme.palette.secondary.main} 100%)`,
@@ -193,6 +193,26 @@ const ProjectViewPage: React.FC = () => {
                                     章节管理
                                 </Button>
                             )}
+                            <Button
+                                variant="contained"
+                                startIcon={<PersonIcon />}
+                                onClick={() => navigate(`/novel_projects/${id}/characters`)}
+                                sx={{
+                                    borderRadius: 3,
+                                    py: 1,
+                                    px: 2,
+                                    fontWeight: 600,
+                                    background: (theme) =>
+                                        `linear-gradient(135deg, ${theme.palette.info.light} 0%, ${theme.palette.info.main} 100%)`,
+                                    boxShadow: (theme) => `0 4px 16px ${alpha(theme.palette.info.main, 0.2)}`,
+                                    '&:hover': {
+                                        background: (theme) =>
+                                            `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.8)} 0%, ${theme.palette.info.main} 100%)`,
+                                    }
+                                }}
+                            >
+                                角色设定
+                            </Button>
                             <Button
                                 variant="contained"
                                 startIcon={<EditIcon />}
@@ -354,6 +374,27 @@ const ProjectViewPage: React.FC = () => {
                                                             }}
                                                         >
                                                             章节列表
+                                                        </Button>
+                                                    </Grid2>
+                                                    <Grid2 size={{ xs: 12 }}>
+                                                        <Button
+                                                            fullWidth
+                                                            variant="outlined"
+                                                            startIcon={<PersonIcon />}
+                                                            onClick={() => navigate(`/novel_projects/${id}/characters`)}
+                                                            sx={{
+                                                                borderRadius: 2,
+                                                                py: 1.5,
+                                                                borderColor: theme.palette.divider,
+                                                                color: theme.palette.text.primary,
+                                                                justifyContent: 'flex-start',
+                                                                '&:hover': {
+                                                                    borderColor: theme.palette.primary.main,
+                                                                    bgcolor: alpha(theme.palette.primary.main, 0.05),
+                                                                }
+                                                            }}
+                                                        >
+                                                            角色设定
                                                         </Button>
                                                     </Grid2>
                                                 </Grid2>
