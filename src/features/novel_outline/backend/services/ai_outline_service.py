@@ -4,13 +4,14 @@
 
 import asyncio
 import json
-from typing import AsyncGenerator, Dict, List, Any
+from typing import Any, AsyncGenerator, Dict, List
 
+from src.backend.ai import ai_service
 from src.backend.core.logger import logger
+from src.features.chapter.backend.services.sync_service import ChapterSyncService
+from src.features.character.backend.models import Character
 from src.features.novel_outline.backend.models import OutlineNode
 from src.features.novel_project.backend.models import NovelProject
-from src.backend.ai import ai_service
-from src.features.chapter.backend.services.sync_service import ChapterSyncService
 
 
 class AIOutlineService:
@@ -20,7 +21,7 @@ class AIOutlineService:
     async def generate_outline_stream(
         project_id: int,
         user_id: int,
-        key_plots: list[str] = None,
+        key_plots: list[str] | None = None,
         additional_content: str = "",
         chapter_count_min: int = 10,
         chapter_count_max: int = 50,
@@ -50,15 +51,16 @@ class AIOutlineService:
             genre = project.genre or ""
             style = project.style or ""
             
-            # 构建提示词
-            prompt = AIOutlineService._build_outline_prompt(
-                topic, genre, style, key_plots or [], additional_content, chapter_count_min, chapter_count_max
+            # 构建提示词（包含项目角色信息）
+            prompt = await AIOutlineService._build_outline_prompt(
+                project_id, topic, genre, style, key_plots or [], additional_content, chapter_count_min, chapter_count_max
             )
             
             yield f"data: {json.dumps({'type': 'status', 'message': '开始生成大纲...'}, ensure_ascii=False)}\n\n"
             
             # 调用AI服务生成大纲
             full_response = ""
+            logger.info(f"AI大纲提示词: {prompt}")
             async for chunk in ai_service.chat_with_ai_stream(user_id, [
                 {"role": "user", "content": prompt}
             ]):
@@ -89,7 +91,8 @@ class AIOutlineService:
             yield f"data: {json.dumps({'type': 'error', 'message': f'生成失败: {str(e)}'}, ensure_ascii=False)}\n\n"
 
     @staticmethod
-    def _build_outline_prompt(
+    async def _build_outline_prompt(
+        project_id: int,
         topic: str,
         genre: str = "",
         style: str = "",
@@ -98,7 +101,7 @@ class AIOutlineService:
         chapter_count_min: int = 10,
         chapter_count_max: int = 50,
     ) -> str:
-        """构建大纲生成提示词"""
+        """构建大纲生成提示词（包含项目角色信息）"""
         prompt = f"""请根据以下设定生成一个小说大纲结构：
 
 主题设定：{topic}
@@ -108,6 +111,43 @@ class AIOutlineService:
             prompt += f"小说类型：{genre}\n"
         if style:
             prompt += f"写作风格：{style}\n"
+        
+        # 获取并添加角色设定信息
+        characters = await Character.filter(project_id=project_id).all()
+        if characters:
+            prompt += "\n【角色设定】\n"
+            prompt += "以下是本项目的主要角色，请在生成大纲时合理安排这些角色的出场：\n\n"
+            for char in characters:
+                prompt += f"角色名：{char.name}\n"
+                # 添加基本信息
+                if char.basic_info:
+                    basic = char.basic_info
+                    info_parts = []
+                    if basic.get('gender'):
+                        info_parts.append(f"性别：{basic['gender']}")
+                    if basic.get('age'):
+                        info_parts.append(f"年龄：{basic['age']}")
+                    if basic.get('occupation'):
+                        info_parts.append(f"职业：{basic['occupation']}")
+                    if basic.get('category'):
+                        info_parts.append(f"角色定位：{basic['category']}")
+                    if info_parts:
+                        prompt += f"  基本信息：{'，'.join(info_parts)}\n"
+                # 添加性格特征
+                if char.personality:
+                    personality = char.personality
+                    traits = personality.get('traits', [])
+                    if traits:
+                        prompt += f"  性格特征：{'、'.join(traits[:5])}\n"
+                # 添加背景简介
+                if char.background:
+                    background = char.background
+                    if background.get('summary'):
+                        prompt += f"  背景简介：{background['summary'][:100]}\n"
+                # 添加其他备注
+                if char.notes:
+                    prompt += f"  其他备注：{char.notes}\n"
+                prompt += "\n"
         
         # 添加关键剧情
         if key_plots:
@@ -119,6 +159,10 @@ class AIOutlineService:
         if additional_content:
             prompt += f"\n其他要求/补充说明：\n{additional_content}\n"
         
+        # 构建角色名称列表用于提示
+        character_names = [char.name for char in characters] if characters else []
+        character_list_hint = f"可用角色：{', '.join(character_names)}" if character_names else "请根据故事需要创建合适的角色"
+        
         prompt += f"""
 结构要求：
 - 总章节数在 {chapter_count_min}-{chapter_count_max} 章之间
@@ -126,6 +170,7 @@ class AIOutlineService:
 - 每卷的章节数可以不同，根据剧情需要灵活安排
 - 每章包含3-5个小节（section）
 - 确保故事完整性，有明确的开端、发展、高潮和结局
+- 【重要】每个小节的description必须包含"出场人物："标识，列出该小节中出现的角色名称
 
 请按照以下JSON格式返回大纲结构（只返回JSON，不要其他说明）：
 
@@ -141,7 +186,7 @@ class AIOutlineService:
           "sections": [
             {{
               "title": "小节标题",
-              "description": "小节要点"
+              "description": "小节内容概要。出场人物：角色A、角色B"
             }}
           ]
         }}
@@ -158,6 +203,10 @@ class AIOutlineService:
 5. 严格按照JSON格式输出，确保可以被解析
 6. 灵活安排卷数和每卷章节数，确保故事节奏合理
 7. 总章节数必须在{chapter_count_min}-{chapter_count_max}章范围内
+8. 【重要】每个section的description必须以"出场人物："结尾，列出该小节中出场的角色
+   - {character_list_hint}
+   - 格式示例："主角初次来到学院，感受到浓厚的学术氛围。出场人物：张三、李四"
+   - 如果该小节无角色出场，写"出场人物：无"
 """
         
         return prompt

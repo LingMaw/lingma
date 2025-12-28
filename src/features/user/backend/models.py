@@ -53,6 +53,6 @@ DEFAULT_USER_SETTINGS = {
     "api_key": "",
     "api_base": "",
     "api_model": "gpt-3.5-turbo",
-    "api_max_tokens": "16000",
+    "api_max_tokens": "32000",
     "auto_save": "true",
 }
