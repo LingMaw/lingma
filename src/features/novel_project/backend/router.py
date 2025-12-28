@@ -2,9 +2,10 @@
 提供小说项目的增删改查接口
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, Path, Query
+from fastapi.responses import StreamingResponse
 from tortoise.exceptions import DoesNotExist
 
 from src.backend.core.dependencies import CurrentUserId
@@ -18,6 +19,7 @@ from .schemas import (
     NovelProjectResponse,
     NovelProjectUpdate,
 )
+from .services.ai_service import project_ai_service
 
 router = APIRouter()
 
@@ -49,6 +51,7 @@ async def create_novel_project(
             status=project_data.status,
             content=project_data.content,
             word_count=project_data.word_count or 0,
+            use_chapter_system=project_data.use_chapter_system,
             user_id=user_id,
         )
         
@@ -238,3 +241,157 @@ async def save_novel_content(
         raise APIError(code="SAVE_FAILED", message=f"保存内容失败: {e!s}") from e
     else:
         return project
+
+
+@router.post("/{project_id}/ai-generate-stream", summary="AI流式生成项目内容")
+async def ai_generate_project_stream(
+    project_id: int = Path(..., description="项目ID"),
+    data: Dict[str, Any] = Body(...),
+    user_id: CurrentUserId = None,
+):
+    """
+    AI流式生成项目内容
+    """
+    try:
+        project = await NovelProject.get_or_none(id=project_id, user_id=user_id)
+        if not project:
+            raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404)
+
+        requirement = data.get("requirement", "")
+
+        async def content_stream():
+            try:
+                yield "".encode("utf-8")  # 初始心跳包
+                async for chunk in project_ai_service.generate_project_content(
+                    project=project,
+                    user_id=user_id,
+                    requirement=requirement,
+                ):
+                    if chunk.strip():
+                        yield chunk.encode("utf-8")
+                logger.info(f"AI生成项目内容成功: {project_id}")
+            except Exception as e:
+                logger.error(f"AI生成项目内容失败: {e}")
+                yield f"error: {e!s}\n\n".encode("utf-8")
+
+        return StreamingResponse(
+            content_stream(),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"AI生成项目失败: {e}")
+        raise APIError(
+            code="AI_GENERATE_FAILED", message="AI生成项目失败", status_code=500
+        )
+
+
+@router.post("/{project_id}/ai-continue-stream", summary="AI流式续写项目内容")
+async def ai_continue_project_stream(
+    project_id: int = Path(..., description="项目ID"),
+    data: Dict[str, Any] = Body(...),
+    user_id: CurrentUserId = None,
+):
+    """
+    AI续写项目内容
+    """
+    try:
+        project = await NovelProject.get_or_none(id=project_id, user_id=user_id)
+        if not project:
+            raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404)
+
+        current_content = data.get("current_content", project.content or "")
+        requirement = data.get("requirement", "")
+
+        async def content_stream():
+            try:
+                yield "".encode("utf-8")
+                async for chunk in project_ai_service.continue_project_content(
+                    project=project,
+                    user_id=user_id,
+                    current_content=current_content,
+                    requirement=requirement,
+                ):
+                    if chunk.strip():
+                        yield chunk.encode("utf-8")
+                logger.info(f"AI续写项目内容成功: {project_id}")
+            except Exception as e:
+                logger.error(f"AI续写项目内容失败: {e}")
+                yield f"error: {e!s}\n\n".encode("utf-8")
+
+        return StreamingResponse(
+            content_stream(),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"AI续写项目失败: {e}")
+        raise APIError(
+            code="AI_CONTINUE_FAILED", message="AI续写项目失败", status_code=500
+        )
+
+
+@router.post("/{project_id}/ai-optimize-stream", summary="AI流式优化项目内容")
+async def ai_optimize_project_stream(
+    project_id: int = Path(..., description="项目ID"),
+    data: Dict[str, Any] = Body(...),
+    user_id: CurrentUserId = None,
+):
+    """
+    AI优化项目内容（语法检查、风格优化等）
+    """
+    try:
+        project = await NovelProject.get_or_none(id=project_id, user_id=user_id)
+        if not project:
+            raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404)
+
+        content = data.get("content", "")
+        optimization_type = data.get("type", "general")  # general, grammar, style
+
+        async def content_stream():
+            try:
+                yield "".encode("utf-8")
+                async for chunk in project_ai_service.optimize_project_content(
+                    project=project,
+                    user_id=user_id,
+                    content=content,
+                    optimization_type=optimization_type,
+                ):
+                    if chunk.strip():
+                        yield chunk.encode("utf-8")
+                logger.info(f"AI优化项目内容成功: {project_id}")
+            except Exception as e:
+                logger.error(f"AI优化项目内容失败: {e}")
+                yield f"error: {e!s}\n\n".encode("utf-8")
+
+        return StreamingResponse(
+            content_stream(),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"AI优化项目失败: {e}")
+        raise APIError(
+            code="AI_OPTIMIZE_FAILED", message="AI优化项目失败", status_code=500
+        )

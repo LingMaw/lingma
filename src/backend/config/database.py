@@ -26,6 +26,8 @@ TORTOISE_ORM = {
             "models": [
                 "src.features.user.backend.models",
                 "src.features.novel_project.backend.models",
+                "src.features.novel_outline.backend.models",
+                "src.features.chapter.backend.models",
                 # 在此添加其他功能模块的models
                 "aerich.models",  # Aerich迁移管理
             ],

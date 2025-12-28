@@ -8,7 +8,13 @@ import NovelGeneratorPage from '@/features/novel_generator/frontend/pages/NovelG
 import NovelProjectListPage from '@/features/novel_project/frontend/pages/ProjectListPage'
 import NovelProjectDetailPage from '@/features/novel_project/frontend/pages/ProjectDetailPage'
 import NovelProjectViewPage from '@/features/novel_project/frontend/pages/ProjectViewPage'
+import ProjectEditorPage from '@/features/novel_project/frontend/pages/ProjectEditorPage'
 import ProfilePage from '@/features/user/frontend/pages/ProfilePage'
+
+// 大纲和章节系统
+import OutlinePage from '@/features/novel_outline/frontend/pages/OutlinePage'
+import ChapterListPage from '@/features/chapter/frontend/pages/ChapterListPage'
+import ChapterEditorPage from '@/features/chapter/frontend/pages/ChapterEditorPage'
 
 import ProtectedRoute from './ProtectedRoute'
 
@@ -30,7 +36,12 @@ const router = createHashRouter([
       { path: '/novel_project', element: <NovelProjectListPage /> },
       { path: '/novel_projects/create', element: <NovelProjectDetailPage /> },
       { path: '/novel_projects/:id/edit', element: <NovelProjectDetailPage /> },
+      { path: '/novel_projects/:id/content-editor', element: <ProjectEditorPage /> },
       { path: '/novel_projects/:id', element: <NovelProjectViewPage /> },
+      // 大纲和章节路由
+      { path: '/novel_projects/:projectId/outline', element: <OutlinePage /> },
+      { path: '/novel_projects/:projectId/chapters', element: <ChapterListPage /> },
+      { path: '/novel_projects/:projectId/chapters/:chapterId', element: <ChapterEditorPage /> },
     ],
   },
   {

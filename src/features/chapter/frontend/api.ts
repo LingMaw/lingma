@@ -1,69 +1,88 @@
+/**
+ * 章节系统API
+ */
+
 import { httpClient } from '@/frontend/core/http'
-import type { AxiosResponse } from 'axios'
 import type { components } from '@/frontend/core/types/generated'
 
-// 从生成的类型中提取需要的类型
-type NovelProjectResponse = components['schemas']['NovelProjectResponse']
-type NovelProjectListResponse = components['schemas']['NovelProjectListResponse']
-type NovelProjectCreate = components['schemas']['NovelProjectCreate']
-type NovelProjectUpdate = components['schemas']['NovelProjectUpdate']
+// 类型别名
+type ChapterResponse = components['schemas']['ChapterResponse']
+type ChapterListItem = components['schemas']['ChapterListItem']
+type ChapterCreate = components['schemas']['ChapterCreate']
+type ChapterUpdate = components['schemas']['ChapterUpdate']
+type ChapterWithHints = components['schemas']['ChapterWithHints']
 
-/**
- * 小说项目管理API
- */
-export const novelProjectAPI = {
+export const chapterAPI = {
   /**
-   * 获取小说项目列表
-   * @param params 查询参数
+   * 获取项目的所有章节
    */
-  async getProjects(params?: { page?: number; size?: number; status?: string }): Promise<NovelProjectListResponse> {
-    const response: AxiosResponse<NovelProjectListResponse> = await httpClient.get('/novel_projects/', { params })
-    return response.data
+  async getChapters(projectId: number): Promise<ChapterListItem[]> {
+    const { data } = await httpClient.get<ChapterListItem[]>(
+      `/novels/chapters/projects/${projectId}`
+    )
+    return data
   },
 
   /**
-   * 获取小说项目详情
-   * @param id 项目ID
+   * 创建章节
    */
-  async getProject(id: number): Promise<NovelProjectResponse> {
-    const response: AxiosResponse<NovelProjectResponse> = await httpClient.get(`/novel_projects/${id}`)
-    return response.data
-  },
-
-  /**
-   * 创建小说项目
-   * @param data 项目创建数据
-   */
-  async createProject(data: NovelProjectCreate): Promise<NovelProjectResponse> {
-    const response: AxiosResponse<NovelProjectResponse> = await httpClient.post('/novel_projects/', data)
-    return response.data
-  },
-
-  /**
-   * 更新小说项目
-   * @param id 项目ID
-   * @param data 项目更新数据
-   */
-  async updateProject(id: number, data: NovelProjectUpdate): Promise<NovelProjectResponse> {
-    const response: AxiosResponse<NovelProjectResponse> = await httpClient.put(`/novel_projects/${id}`, data)
-    return response.data
-  },
-
-  /**
-   * 删除小说项目
-   * @param id 项目ID
-   */
-  async deleteProject(id: number): Promise<void> {
-    await httpClient.delete(`/novel_projects/${id}`)
-  },
-
-  /**
-   * AI流式生成项目内容
-   * @param projectId 项目ID
-   * @param options 生成选项
-   */
-  async aiGenerateProjectStream(
+  async createChapter(
     projectId: number,
+    chapterData: ChapterCreate
+  ): Promise<ChapterResponse> {
+    const { data } = await httpClient.post<ChapterResponse>(
+      `/novels/chapters/projects/${projectId}`,
+      chapterData
+    )
+    return data
+  },
+
+  /**
+   * 获取章节详情
+   */
+  async getChapter(chapterId: number): Promise<ChapterResponse> {
+    const { data } = await httpClient.get<ChapterResponse>(
+      `/novels/chapters/${chapterId}`
+    )
+    return data
+  },
+
+  /**
+   * 获取章节详情(包含section提纲)
+   */
+  async getChapterWithHints(chapterId: number): Promise<ChapterWithHints> {
+    const { data } = await httpClient.get<ChapterWithHints>(
+      `/novels/chapters/${chapterId}/with-hints`
+    )
+    return data
+  },
+
+  /**
+   * 更新章节
+   */
+  async updateChapter(
+    chapterId: number,
+    chapterData: ChapterUpdate
+  ): Promise<ChapterResponse> {
+    const { data } = await httpClient.put<ChapterResponse>(
+      `/novels/chapters/${chapterId}`,
+      chapterData
+    )
+    return data
+  },
+
+  /**
+   * 删除章节
+   */
+  async deleteChapter(chapterId: number): Promise<void> {
+    await httpClient.delete(`/novels/chapters/${chapterId}`)
+  },
+
+  /**
+   * AI生成章节内容（流式）
+   */
+  async aiGenerateChapterStream(
+    chapterId: number,
     options: {
       requirement?: string
       onChunk: (chunk: string) => void
@@ -80,7 +99,7 @@ export const novelProjectAPI = {
 
     try {
       const response = await fetch(
-        `${httpClient.defaults.baseURL}/novel_projects/${projectId}/ai-generate-stream`,
+        `${httpClient.defaults.baseURL}/novels/chapters/${chapterId}/ai-generate-stream`,
         {
           method: 'POST',
           headers: {
@@ -134,12 +153,10 @@ export const novelProjectAPI = {
   },
 
   /**
-   * AI流式续写项目内容
-   * @param projectId 项目ID
-   * @param options 续写选项
+   * AI续写章节内容（流式）
    */
-  async aiContinueProjectStream(
-    projectId: number,
+  async aiContinueChapterStream(
+    chapterId: number,
     options: {
       currentContent: string
       requirement?: string
@@ -157,7 +174,7 @@ export const novelProjectAPI = {
 
     try {
       const response = await fetch(
-        `${httpClient.defaults.baseURL}/novel_projects/${projectId}/ai-continue-stream`,
+        `${httpClient.defaults.baseURL}/novels/chapters/${chapterId}/ai-continue-stream`,
         {
           method: 'POST',
           headers: {
@@ -212,12 +229,10 @@ export const novelProjectAPI = {
   },
 
   /**
-   * AI流式优化项目内容（语法检查、风格优化等）
-   * @param projectId 项目ID
-   * @param options 优化选项
+   * AI优化章节内容（流式）
    */
-  async aiOptimizeProjectStream(
-    projectId: number,
+  async aiOptimizeChapterStream(
+    chapterId: number,
     options: {
       content: string
       type: 'general' | 'grammar' | 'style'
@@ -235,7 +250,7 @@ export const novelProjectAPI = {
 
     try {
       const response = await fetch(
-        `${httpClient.defaults.baseURL}/novel_projects/${projectId}/ai-optimize-stream`,
+        `${httpClient.defaults.baseURL}/novels/chapters/${chapterId}/ai-optimize-stream`,
         {
           method: 'POST',
           headers: {
@@ -287,5 +302,5 @@ export const novelProjectAPI = {
     }
 
     return () => controller.abort()
-  }
+  },
 }

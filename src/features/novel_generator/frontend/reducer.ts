@@ -31,11 +31,7 @@ export function reducer(state: NovelState, action: NovelAction): NovelState {
         ...state,
         isStreaming: action.isStreaming,
       }
-    case 'SET_CHAT_PANEL':
-      return {
-        ...state,
-        showChatPanel: action.show,
-      }
+
     case 'RESET_CONTENT':
       return {
         ...state,
@@ -48,6 +44,16 @@ export function reducer(state: NovelState, action: NovelAction): NovelState {
       return {
         ...state,
         ...action.payload,
+      }
+    case 'APPLY_TEMPLATE':
+      return {
+        ...state,
+        form: {
+          ...state.form,
+          genre: action.template.genre,
+          style: action.template.style,
+          requirement: action.template.requirement,
+        },
       }
     default:
       return state

@@ -2,6 +2,19 @@
  * 小说生成器类型定义
  */
 
+// 短篇小说快捷模板类型
+export interface ShortStoryTemplate {
+  id: string
+  name: string
+  icon: string
+  description: string
+  genre: string
+  style: string
+  plotPoints: string[]
+  suggestedLength: string
+  requirement: string
+}
+
 // API 请求/响应类型
 export interface NovelGenerateRequest {
   title: string
@@ -37,7 +50,7 @@ export interface NovelState {
     streaming: string
   }
   isStreaming: boolean
-  showChatPanel: boolean
+
 }
 
 export type NovelAction =
@@ -45,6 +58,7 @@ export type NovelAction =
   | { type: 'SET_CONTENT'; value: string }
   | { type: 'SET_GENERATED_CONTENT'; value: string }
   | { type: 'SET_STREAMING'; isStreaming: boolean }
-  | { type: 'SET_CHAT_PANEL'; show: boolean }
+
   | { type: 'RESET_CONTENT' }
   | { type: 'INITIALIZE_STATE'; payload: Partial<NovelState> }
+  | { type: 'APPLY_TEMPLATE'; template: ShortStoryTemplate }

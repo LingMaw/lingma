@@ -13,18 +13,17 @@ import {
     Divider,
     useTheme,
     alpha,
-    IconButton,
-    Tooltip
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
 import { novelProjectAPI } from '@/features/novel_project/frontend'
+import { chapterAPI } from '@/features/chapter/frontend'
 import { containerVariants, itemVariants } from '@/frontend/core/animation'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import BookIcon from '@mui/icons-material/Book'
-import AutoStoriesIcon from '@mui/icons-material/AutoStories'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
+import ListAltIcon from '@mui/icons-material/ListAlt'
 
 const ProjectViewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>()
@@ -33,6 +32,7 @@ const ProjectViewPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null)
     const [snackbarOpen, setSnackbarOpen] = useState(false)
     const [snackbarMessage, setSnackbarMessage] = useState('')
+    const [chapters, setChapters] = useState<any[]>([])
 
     const navigate = useNavigate()
     const theme = useTheme()
@@ -43,11 +43,39 @@ const ProjectViewPage: React.FC = () => {
         }
     }, [id])
 
+    // 监听窗口焦点，每次回到页面時刷新数据
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (!document.hidden && id) {
+                fetchProject()
+            }
+        }
+        window.addEventListener('focus', handleVisibilityChange)
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+        return () => {
+            window.removeEventListener('focus', handleVisibilityChange)
+            document.removeEventListener('visibilitychange', handleVisibilityChange)
+        }
+    }, [id])
+
     const fetchProject = async () => {
         try {
             setLoading(true)
             const projectData = await novelProjectAPI.getProject(Number(id))
             setProject(projectData)
+            
+            // 只有启用章节系统的项目才获取章节
+            if (projectData.use_chapter_system) {
+                try {
+                    const chaptersData = await chapterAPI.getChapters(Number(id))
+                    setChapters(chaptersData)
+                } catch (err) {
+                    console.error('获取章节失败:', err)
+                    setChapters([])
+                }
+            } else {
+                setChapters([])
+            }
         } catch (err) {
             setError('获取项目信息失败')
             setSnackbarMessage('获取项目信息失败')
@@ -57,13 +85,7 @@ const ProjectViewPage: React.FC = () => {
         }
     }
 
-    const handleCopyContent = () => {
-        if (project?.content) {
-            navigator.clipboard.writeText(project.content)
-            setSnackbarMessage('内容已复制到剪贴板')
-            setSnackbarOpen(true)
-        }
-    }
+
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -91,6 +113,24 @@ const ProjectViewPage: React.FC = () => {
 
     const getStyleText = (style: string) => {
         return style || '未指定'
+    }
+
+    const getChapterStatusLabel = (status: string) => {
+        switch (status) {
+            case 'draft': return '草稿'
+            case 'completed': return '已完成'
+            case 'ai_generated': return 'AI生成'
+            default: return status
+        }
+    }
+
+    const getChapterStatusColor = (status: string) => {
+        switch (status) {
+            case 'draft': return 'default'
+            case 'completed': return 'success'
+            case 'ai_generated': return 'info'
+            default: return 'default'
+        }
     }
 
     if (loading) {
@@ -130,49 +170,29 @@ const ProjectViewPage: React.FC = () => {
                             项目详情
                         </Typography>
                         <Box>
-                            <Button
-                                variant="contained"
-                                startIcon={<AutoStoriesIcon />}
-                                onClick={() => {
-                                    if (!project) {
-                                        alert('项目信息未加载，请稍候')
-                                        return
-                                    }
-                                    navigate('/novel_generator', { 
-                                        state: { 
-                                            project: {
-                                                id: project.id,
-                                                title: project.title,
-                                                genre: project.genre,
-                                                style: project.style,
-                                                description: project.description,
-                                                content: project.content,
-                                                status: project.status,
-                                                word_count: project.word_count,
-                                                created_at: project.created_at,
-                                                updated_at: project.updated_at
-                                            },
-                                            content: project.content || ''
-                                        } 
-                                    })
-                                }}
-                                sx={{
-                                    borderRadius: 3,
-                                    py: 1,
-                                    px: 2,
-                                    mr: 1,
-                                    fontWeight: 600,
-                                    background: (theme) =>
-                                        `linear-gradient(135deg, ${theme.palette.secondary.light} 0%, ${theme.palette.secondary.main} 100%)`,
-                                    boxShadow: (theme) => `0 4px 16px ${alpha(theme.palette.secondary.main, 0.2)}`,
-                                    '&:hover': {
+                            {project?.use_chapter_system && (
+                                <Button
+                                    variant="contained"
+                                    startIcon={<ListAltIcon />}
+                                    onClick={() => navigate(`/novel_projects/${id}/chapters`)}
+                                    sx={{
+                                        borderRadius: 3,
+                                        py: 1,
+                                        px: 2,
+                                        mr: 1,
+                                        fontWeight: 600,
                                         background: (theme) =>
-                                            `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.8)} 0%, ${theme.palette.secondary.main} 100%)`,
-                                    }
-                                }}
-                            >
-                                AI创作
-                            </Button>
+                                            `linear-gradient(135deg, ${theme.palette.secondary.light} 0%, ${theme.palette.secondary.main} 100%)`,
+                                        boxShadow: (theme) => `0 4px 16px ${alpha(theme.palette.secondary.main, 0.2)}`,
+                                        '&:hover': {
+                                            background: (theme) =>
+                                                `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.8)} 0%, ${theme.palette.secondary.main} 100%)`,
+                                        }
+                                    }}
+                                >
+                                    章节管理
+                                </Button>
+                            )}
                             <Button
                                 variant="contained"
                                 startIcon={<EditIcon />}
@@ -284,10 +304,65 @@ const ProjectViewPage: React.FC = () => {
                                                 {project?.created_at ? new Date(project.created_at).toLocaleString() : '未知'}
                                             </Typography>
                                         </Box>
+
+                                        <Divider sx={{ my: 3 }} />
+
+                                        {/* 大纲和章节管理入口 */}
+                                        {project?.use_chapter_system && (
+                                            <Box>
+                                                <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+                                                    内容管理
+                                                </Typography>
+                                                <Grid2 container spacing={2}>
+                                                    <Grid2 size={{ xs: 12 }}>
+                                                        <Button
+                                                            fullWidth
+                                                            variant="outlined"
+                                                            startIcon={<AccountTreeIcon />}
+                                                            onClick={() => navigate(`/novel_projects/${id}/outline`)}
+                                                            sx={{
+                                                                borderRadius: 2,
+                                                                py: 1.5,
+                                                                borderColor: theme.palette.divider,
+                                                                color: theme.palette.text.primary,
+                                                                justifyContent: 'flex-start',
+                                                                '&:hover': {
+                                                                    borderColor: theme.palette.primary.main,
+                                                                    bgcolor: alpha(theme.palette.primary.main, 0.05),
+                                                                }
+                                                            }}
+                                                        >
+                                                            大纲管理
+                                                        </Button>
+                                                    </Grid2>
+                                                    <Grid2 size={{ xs: 12 }}>
+                                                        <Button
+                                                            fullWidth
+                                                            variant="outlined"
+                                                            startIcon={<ListAltIcon />}
+                                                            onClick={() => navigate(`/novel_projects/${id}/chapters`)}
+                                                            sx={{
+                                                                borderRadius: 2,
+                                                                py: 1.5,
+                                                                borderColor: theme.palette.divider,
+                                                                color: theme.palette.text.primary,
+                                                                justifyContent: 'flex-start',
+                                                                '&:hover': {
+                                                                    borderColor: theme.palette.primary.main,
+                                                                    bgcolor: alpha(theme.palette.primary.main, 0.05),
+                                                                }
+                                                            }}
+                                                        >
+                                                            章节列表
+                                                        </Button>
+                                                    </Grid2>
+                                                </Grid2>
+                                            </Box>
+                                        )}
                                     </Paper>
                                 </Grid2>
 
-                                {/* 小说内容展示 */}
+                                {/* 章节列表或正文展示 */}
                                 <Grid2 size={{ xs: 12, lg: 8 }}>
                                     <Paper
                                         elevation={0}
@@ -302,56 +377,159 @@ const ProjectViewPage: React.FC = () => {
                                             flexDirection: 'column'
                                         }}
                                     >
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                                                小说内容
-                                            </Typography>
-                                            {project?.content && (
-                                                <Tooltip title="复制内容">
-                                                    <IconButton size="small" onClick={handleCopyContent}>
-                                                        <ContentCopyIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            )}
-                                        </Box>
+                                        {project?.use_chapter_system ? (
+                                            // 启用章节系统：显示章节列表
+                                            <>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                                                        章节列表 ({chapters.length})
+                                                    </Typography>
+                                                </Box>
 
-                                        <Box
-                                            sx={{
-                                                flex: 1,
-                                                overflow: 'auto',
-                                                p: 2,
-                                                backgroundColor: alpha(theme.palette.background.default, 0.3),
-                                                borderRadius: 2,
-                                                border: `1px dashed ${theme.palette.divider}`
-                                            }}
-                                        >
-                                            {project?.content ? (
-                                                <Typography
-                                                    component="div"
-                                                    variant="body1"
+                                                {chapters.length > 0 ? (
+                                                    <Box
+                                                        sx={{
+                                                            flex: 1,
+                                                            overflow: 'auto',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: 2
+                                                        }}
+                                                    >
+                                                        {chapters.map((chapter) => (
+                                                            <Paper
+                                                                key={chapter.id}
+                                                                elevation={0}
+                                                                sx={{
+                                                                    p: 2,
+                                                                    backgroundColor: alpha(theme.palette.background.default, 0.3),
+                                                                    border: `1px solid ${theme.palette.divider}`,
+                                                                    borderRadius: 2,
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.3s ease',
+                                                                    '&:hover': {
+                                                                        backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                                                                        borderColor: theme.palette.primary.main,
+                                                                    }
+                                                                }}
+                                                                onClick={() => {
+                                                                    navigate(`/novel_projects/${id}/chapters/${chapter.id}`)
+                                                                    // 延迟刷新，确保返回时数据已更新
+                                                                    setTimeout(() => fetchProject(), 500)
+                                                                }}
+                                                            >
+                                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                                                                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                                                        {chapter.title}
+                                                                    </Typography>
+                                                                    <Chip
+                                                                        label={getChapterStatusLabel(chapter.status)}
+                                                                        color={getChapterStatusColor(chapter.status) as any}
+                                                                        size="small"
+                                                                        variant="outlined"
+                                                                    />
+                                                                </Box>
+                                                                <Box sx={{ display: 'flex', gap: 2 }}>
+                                                                    <Typography variant="caption" color="text.secondary">
+                                                                        第 {chapter.chapter_number} 章
+                                                                    </Typography>
+                                                                    <Typography variant="caption" color="text.secondary">
+                                                                        {chapter.word_count > 0 ? `${chapter.word_count} 字` : '待编写'}
+                                                                    </Typography>
+                                                                    <Typography variant="caption" color="text.secondary">
+                                                                        {new Date(chapter.updated_at).toLocaleDateString()}
+                                                                    </Typography>
+                                                                </Box>
+                                                            </Paper>
+                                                        ))}
+                                                    </Box>
+                                                ) : (
+                                                    <Box sx={{ 
+                                                        height: '100%', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'center',
+                                                        color: 'text.secondary'
+                                                    }}>
+                                                        <Typography>该项目暂无章节，前往章节列表创建</Typography>
+                                                    </Box>
+                                                )}
+                                            </>
+                                        ) : (
+                                            // 未启用章节系统：显示正文内容
+                                            <>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                                                        正文内容
+                                                    </Typography>
+                                                    <Button
+                                                        variant="contained"
+                                                        startIcon={<EditIcon />}
+                                                        onClick={() => navigate(`/novel_projects/${id}/content-editor`)}
+                                                        sx={{
+                                                            borderRadius: 2,
+                                                            py: 0.75,
+                                                            px: 2,
+                                                            fontWeight: 600,
+                                                            background: (theme) =>
+                                                                `linear-gradient(135deg, ${theme.palette.primary.light} 0%, ${theme.palette.primary.main} 100%)`,
+                                                            boxShadow: (theme) => `0 4px 16px ${alpha(theme.palette.primary.main, 0.2)}`,
+                                                            '&:hover': {
+                                                                background: (theme) =>
+                                                                    `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.8)} 0%, ${theme.palette.primary.main} 100%)`,
+                                                            }
+                                                        }}
+                                                    >
+                                                        编辑内容
+                                                    </Button>
+                                                </Box>
+
+                                                <Box
                                                     sx={{
-                                                        fontFamily: '"Merriweather", "Georgia", "Times New Roman", serif',
-                                                        fontSize: '1rem',
-                                                        lineHeight: 1.8,
-                                                        color: theme.palette.text.primary,
-                                                        whiteSpace: 'pre-wrap',
-                                                        textAlign: 'justify',
+                                                        flex: 1,
+                                                        overflow: 'auto',
+                                                        p: 2,
+                                                        backgroundColor: alpha(theme.palette.background.default, 0.3),
+                                                        border: `1px solid ${theme.palette.divider}`,
+                                                        borderRadius: 2,
                                                     }}
                                                 >
-                                                    {project.content}
-                                                </Typography>
-                                            ) : (
-                                                <Box sx={{ 
-                                                    height: '100%', 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    justifyContent: 'center',
-                                                    color: 'text.secondary'
-                                                }}>
-                                                    <Typography>该项目暂无小说内容</Typography>
+                                                    {project?.content ? (
+                                                        <Typography
+                                                            variant="body1"
+                                                            sx={{
+                                                                whiteSpace: 'pre-wrap',
+                                                                wordBreak: 'break-word',
+                                                                lineHeight: 1.8,
+                                                                textIndent: '2em'
+                                                            }}
+                                                        >
+                                                            {project.content}
+                                                        </Typography>
+                                                    ) : (
+                                                        <Box sx={{ 
+                                                            height: '100%', 
+                                                            display: 'flex', 
+                                                            flexDirection: 'column',
+                                                            alignItems: 'center', 
+                                                            justifyContent: 'center',
+                                                            color: 'text.secondary',
+                                                            gap: 2
+                                                        }}>
+                                                            <Typography>暂无正文内容</Typography>
+                                                            <Button
+                                                                variant="contained"
+                                                                startIcon={<EditIcon />}
+                                                                onClick={() => navigate(`/novel_projects/${id}/content-editor`)}
+                                                                sx={{ borderRadius: 2 }}
+                                                            >
+                                                                开始编辑
+                                                            </Button>
+                                                        </Box>
+                                                    )}
                                                 </Box>
-                                            )}
-                                        </Box>
+                                            </>
+                                        )}
                                     </Paper>
                                 </Grid2>
                             </Grid2>

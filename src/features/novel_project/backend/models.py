@@ -11,8 +11,8 @@ class NovelProject(models.Model):
     id = fields.IntField(pk=True)
     title = fields.CharField(max_length=200, description="项目标题")
     description = fields.TextField(null=True, blank=True, description="项目描述")
-    genre = fields.CharField(max_length=50, null=True, blank=True, description="小说类型")
-    style = fields.CharField(max_length=50, null=True, blank=True, description="写作风格")
+    genre = fields.CharField(max_length=100, null=True, blank=True, description="小说类型")
+    style = fields.TextField(null=True, blank=True, description="写作风格")
     status = fields.CharField(max_length=20, default="draft", description="项目状态")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
     updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
@@ -20,6 +20,10 @@ class NovelProject(models.Model):
     # 添加小说内容字段
     content = fields.TextField(null=True, blank=True, description="小说内容")
     word_count = fields.IntField(default=0, description="字数统计")
+    
+    # 章节系统相关字段
+    chapter_ids = fields.JSONField(default=list, description="章节ID列表")
+    use_chapter_system = fields.BooleanField(default=False, description="是否使用章节系统")
     
     # 关联用户
     user_id = fields.BigIntField(description="创建用户ID")

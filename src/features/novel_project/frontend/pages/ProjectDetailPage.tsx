@@ -3,15 +3,12 @@ import {
     Box,
     Button,
     Container,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
-    DialogTitle,
     FormControl,
+    FormControlLabel,
     FormLabel,
     Grid2,
     Paper,
+    Switch,
     TextField,
     Typography,
     CircularProgress,
@@ -19,6 +16,7 @@ import {
     Snackbar,
     Select,
     MenuItem,
+    Autocomplete,
     useTheme,
     alpha
 } from '@mui/material'
@@ -36,18 +34,9 @@ const ProjectDetailPage: React.FC = () => {
     const [description, setDescription] = useState('')
     const [genre, setGenre] = useState('')
     const [style, setStyle] = useState('')
-    const [status, setStatus] = useState('draft')
+    const [status, setStatus] = useState<'draft' | 'in_progress' | 'completed' | 'archived'>('draft')
+    const [useChapterSystem, setUseChapterSystem] = useState(false)
     
-    // 自定义选项状态
-    const [customGenre, setCustomGenre] = useState('')
-    const [customStyle, setCustomStyle] = useState('')
-    
-    // 自定义选项对话框状态
-    const [openGenreDialog, setOpenGenreDialog] = useState(false)
-    const [openStyleDialog, setOpenStyleDialog] = useState(false)
-    const [tempCustomValue, setTempCustomValue] = useState('')
-    const [customValueType, setCustomValueType] = useState<'genre' | 'style'>('genre')
-
     const [loading, setLoading] = useState(isEditing)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
@@ -55,47 +44,6 @@ const ProjectDetailPage: React.FC = () => {
 
     const navigate = useNavigate()
     const theme = useTheme()
-    
-    // 处理自定义选项
-    const handleCustomOption = (type: 'genre' | 'style') => {
-        setCustomValueType(type)
-        setTempCustomValue('')
-        if (type === 'genre') {
-            setOpenGenreDialog(true)
-        } else {
-            setOpenStyleDialog(true)
-        }
-    }
-    
-    // 保存自定义选项
-    const saveCustomOption = () => {
-        if (customValueType === 'genre') {
-            setCustomGenre(tempCustomValue)
-            setGenre(tempCustomValue)
-            setOpenGenreDialog(false)
-        } else {
-            setCustomStyle(tempCustomValue)
-            setStyle(tempCustomValue)
-            setOpenStyleDialog(false)
-        }
-    }
-    
-    // 处理选项更改
-    const handleGenreChange = (value: string) => {
-        if (value === 'custom_genre') {
-            handleCustomOption('genre')
-        } else {
-            setGenre(value)
-        }
-    }
-    
-    const handleStyleChange = (value: string) => {
-        if (value === 'custom_style') {
-            handleCustomOption('style')
-        } else {
-            setStyle(value)
-        }
-    }
 
     useEffect(() => {
         if (isEditing) {
@@ -111,7 +59,8 @@ const ProjectDetailPage: React.FC = () => {
             setDescription(project.description || '')
             setGenre(project.genre || '')
             setStyle(project.style || '')
-            setStatus(project.status || 'draft') // 处理可能为null的情况
+            setStatus(project.status as any || 'draft')
+            setUseChapterSystem(project.use_chapter_system || false)
         } catch (err) {
             setError('获取项目信息失败')
             setSnackbarOpen(true)
@@ -130,6 +79,7 @@ const ProjectDetailPage: React.FC = () => {
                 genre,
                 style,
                 status,
+                use_chapter_system: useChapterSystem,
                 word_count: 0 // 添加缺失的word_count字段
             }
 
@@ -151,14 +101,22 @@ const ProjectDetailPage: React.FC = () => {
         }
     }
 
-    const presetGenreOptions = ['科幻', '奇幻', '悬疑', '爱情', '历史', '军事', '都市', '武侠', '仙侠', '游戏', '体育', '灵异']
-    const presetStyleOptions = ['现实主义', '浪漫主义', '古典主义', '现代主义', '魔幻现实主义', '黑色幽默', '意识流', '自然主义']
+    const presetGenreOptions = [
+        '科幻', '奇幻', '仙侠', '武侠', '都市', 
+        '历史', '军事', '游戏', '竞技', 
+        '悬疑', '灵异', '惊悚', '推理',
+        '爱情', '言情', '青春', '职场',
+        '体育', '逆袭', '重生', '穿越', 
+        '末世', '学霸', '系统'
+    ]
+    const presetStyleOptions = [
+        '轻松幽默', '热血燃向', '治愈暖心', '打脸爽文',
+        '细腻情感', '快节奏爽文', '重剧情硬核',
+        '现实主义', '浪漫主义', '黑色幽默',
+        '意识流', '自然主义', '魔幻现实主义'
+    ]
     
-    // 获取最终的选项列表，包括自定义选项
-    const genreOptions = [...new Set([...presetGenreOptions, customGenre].filter(Boolean))]
-    const styleOptions = [...new Set([...presetStyleOptions, customStyle].filter(Boolean))]
-    
-    const statusOptions = [
+    const statusOptions: Array<{value: 'draft' | 'in_progress' | 'completed' | 'archived', label: string}> = [
         { value: 'draft', label: '草稿' },
         { value: 'in_progress', label: '进行中' },
         { value: 'completed', label: '已完成' },
@@ -271,83 +229,73 @@ const ProjectDetailPage: React.FC = () => {
                                     </Grid2>
 
                                     <Grid2 size={{ xs: 12, md: 6 }}>
-                                        <FormControl fullWidth variant="outlined">
+                                        <FormControl fullWidth>
                                             <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>小说类型</FormLabel>
-                                            <Select
+                                            <Autocomplete
+                                                freeSolo
                                                 value={genre}
-                                                onChange={(e) => handleGenreChange(e.target.value)}
-                                                displayEmpty
+                                                onChange={(_, newValue) => setGenre(newValue || '')}
+                                                inputValue={genre}
+                                                onInputChange={(_, newInputValue) => setGenre(newInputValue)}
+                                                options={presetGenreOptions}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        placeholder="请输入或选择类型"
+                                                        variant="outlined"
+                                                        sx={{
+                                                            '& .MuiOutlinedInput-root': {
+                                                                borderRadius: 3,
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
                                                 sx={{
-                                                    borderRadius: 3,
-                                                    '& .MuiOutlinedInput-notchedOutline': {
-                                                        borderColor: theme.palette.divider,
-                                                    },
-                                                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                                                        borderColor: 'primary.main',
-                                                    },
-                                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                                        borderColor: 'primary.main',
-                                                        borderWidth: '1px',
+                                                    '& .MuiAutocomplete-popupIndicator': {
+                                                        color: 'text.secondary'
                                                     }
                                                 }}
-                                            >
-                                                <MenuItem value="" disabled>
-                                                    <em>选择类型</em>
-                                                </MenuItem>
-                                                {genreOptions.map((g) => (
-                                                    <MenuItem key={g} value={g}>
-                                                        {g}
-                                                    </MenuItem>
-                                                ))}
-                                                <MenuItem value="custom_genre">
-                                                    <em>自定义...</em>
-                                                </MenuItem>
-                                            </Select>
+                                            />
+                                        </FormControl>
+                                    </Grid2>
+
+                                    <Grid2 size={{ xs: 12, md: 6 }}>
+                                        <FormControl fullWidth>
+                                            <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>写作风格</FormLabel>
+                                            <Autocomplete
+                                                freeSolo
+                                                value={style}
+                                                onChange={(_, newValue) => setStyle(newValue || '')}
+                                                inputValue={style}
+                                                onInputChange={(_, newInputValue) => setStyle(newInputValue)}
+                                                options={presetStyleOptions}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        placeholder="请输入或选择风格"
+                                                        variant="outlined"
+                                                        sx={{
+                                                            '& .MuiOutlinedInput-root': {
+                                                                borderRadius: 3,
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
+                                                sx={{
+                                                    '& .MuiAutocomplete-popupIndicator': {
+                                                        color: 'text.secondary'
+                                                    }
+                                                }}
+                                            />
                                         </FormControl>
                                     </Grid2>
 
                                     <Grid2 size={{ xs: 12, md: 6 }}>
                                         <FormControl fullWidth variant="outlined">
-                                            <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>写作风格</FormLabel>
-                                            <Select
-                                                value={style}
-                                                onChange={(e) => handleStyleChange(e.target.value)}
-                                                displayEmpty
-                                                sx={{
-                                                    borderRadius: 3,
-                                                    '& .MuiOutlinedInput-notchedOutline': {
-                                                        borderColor: theme.palette.divider,
-                                                    },
-                                                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                                                        borderColor: 'primary.main',
-                                                    },
-                                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                                        borderColor: 'primary.main',
-                                                        borderWidth: '1px',
-                                                    }
-                                                }}
-                                            >
-                                                <MenuItem value="" disabled>
-                                                    <em>选择风格</em>
-                                                </MenuItem>
-                                                {styleOptions.map((s) => (
-                                                    <MenuItem key={s} value={s}>
-                                                        {s}
-                                                    </MenuItem>
-                                                ))}
-                                                <MenuItem value="custom_style">
-                                                    <em>自定义...</em>
-                                                </MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                    </Grid2>
-
-                                    <Grid2 size={12}>
-                                        <FormControl fullWidth variant="outlined">
                                             <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>项目状态</FormLabel>
                                             <Select
                                                 value={status}
-                                                onChange={(e) => setStatus(e.target.value)}
+                                                onChange={(e) => setStatus(e.target.value as 'draft' | 'in_progress' | 'completed' | 'archived')}
                                                 sx={{
                                                     borderRadius: 3,
                                                     '& .MuiOutlinedInput-notchedOutline': {
@@ -368,6 +316,49 @@ const ProjectDetailPage: React.FC = () => {
                                                     </MenuItem>
                                                 ))}
                                             </Select>
+                                        </FormControl>
+                                    </Grid2>
+
+                                    <Grid2 size={{ xs: 12, md: 6 }}>
+                                        <FormControl fullWidth>
+                                            <FormLabel sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>章节管理</FormLabel>
+                                            <Box
+                                                sx={{
+                                                    height: '56px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    px: 2,
+                                                    borderRadius: 3,
+                                                    border: `1px solid ${theme.palette.divider}`,
+                                                    bgcolor: alpha(theme.palette.background.default, 0.3),
+                                                    transition: 'all 0.2s',
+                                                    '&:hover': {
+                                                        bgcolor: alpha(theme.palette.primary.main, 0.05),
+                                                        borderColor: theme.palette.primary.main,
+                                                    }
+                                                }}
+                                            >
+                                                <FormControlLabel
+                                                    control={
+                                                        <Switch
+                                                            checked={useChapterSystem}
+                                                            onChange={(e) => setUseChapterSystem(e.target.checked)}
+                                                            color="primary"
+                                                        />
+                                                    }
+                                                    label={
+                                                        <Box sx={{ ml: 1 }}>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                启用章节管理
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+                                                                启用大纲和章节功能
+                                                            </Typography>
+                                                        </Box>
+                                                    }
+                                                    sx={{ m: 0, width: '100%' }}
+                                                />
+                                            </Box>
                                         </FormControl>
                                     </Grid2>
                                 </Grid2>
@@ -391,56 +382,6 @@ const ProjectDetailPage: React.FC = () => {
                         {error || '操作成功'}
                     </Alert>
                 </Snackbar>
-                
-                {/* 自定义小说类型对话框 */}
-                <Dialog open={openGenreDialog} onClose={() => setOpenGenreDialog(false)}>
-                    <DialogTitle>添加自定义小说类型</DialogTitle>
-                    <DialogContent>
-                        <DialogContentText>
-                            请输入您想要添加的小说类型
-                        </DialogContentText>
-                        <TextField
-                            autoFocus
-                            margin="dense"
-                            label="小说类型"
-                            fullWidth
-                            variant="outlined"
-                            value={tempCustomValue}
-                            onChange={(e) => setTempCustomValue(e.target.value)}
-                        />
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setOpenGenreDialog(false)}>取消</Button>
-                        <Button onClick={saveCustomOption} disabled={!tempCustomValue.trim()}>
-                            添加
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-                
-                {/* 自定义写作风格对话框 */}
-                <Dialog open={openStyleDialog} onClose={() => setOpenStyleDialog(false)}>
-                    <DialogTitle>添加自定义写作风格</DialogTitle>
-                    <DialogContent>
-                        <DialogContentText>
-                            请输入您想要添加的写作风格
-                        </DialogContentText>
-                        <TextField
-                            autoFocus
-                            margin="dense"
-                            label="写作风格"
-                            fullWidth
-                            variant="outlined"
-                            value={tempCustomValue}
-                            onChange={(e) => setTempCustomValue(e.target.value)}
-                        />
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setOpenStyleDialog(false)}>取消</Button>
-                        <Button onClick={saveCustomOption} disabled={!tempCustomValue.trim()}>
-                            添加
-                        </Button>
-                    </DialogActions>
-                </Dialog>
             </motion.div>
         </Box>
     )

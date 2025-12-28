@@ -1,4 +1,4 @@
-import React, { useReducer, useRef, useEffect, useCallback, useMemo } from 'react'
+import React, { useReducer, useRef, useEffect, useCallback, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
   Box,
@@ -8,8 +8,7 @@ import {
   FormControl,
   FormLabel,
   TextField,
-  Select,
-  MenuItem,
+  Autocomplete,
   Button,
   Typography,
   IconButton,
@@ -19,26 +18,32 @@ import {
   alpha,
 } from '@mui/material'
 import { motion } from 'framer-motion'
-import ChatIcon from '@mui/icons-material/Chat'
-import CloseIcon from '@mui/icons-material/Close'
+import { scaleVariants } from '@/frontend/core/animation'
 import AutoStoriesIcon from '@mui/icons-material/AutoStories'
 import SaveIcon from '@mui/icons-material/Save'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 
 // API 和类型
 import { novelGeneratorAPI } from '@/features/novel_generator/frontend'
-import { httpClient } from '@/frontend/core/http'
 import { INITIAL_STATE } from '@/features/novel_generator/frontend/constants'
 import { reducer } from '@/features/novel_generator/frontend/reducer'
 import { GENRE_OPTIONS, STYLE_OPTIONS } from '@/features/novel_generator/frontend/constants'
-import AIChatPanel from '@/features/novel_generator/frontend/components/AIChatPanel'
+
+import QuickTemplateSelector from '@/features/novel_generator/frontend/components/QuickTemplateSelector'
+import QuickCreateProjectDialog from '@/features/novel_generator/frontend/components/QuickCreateProjectDialog'
+import type { ShortStoryTemplate } from '@/features/novel_generator/frontend/types'
+import { useUserStore } from '@/frontend/shared/stores/user'
+import { useNavigate } from 'react-router-dom'
 
 const NovelGeneratorPage: React.FC = () => {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { isAuthenticated } = useUserStore()
   const { project, content: initialContent } = location.state || {}
   const theme = useTheme()
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   // 初始化
   useEffect(() => {
@@ -123,29 +128,35 @@ const NovelGeneratorPage: React.FC = () => {
     }
   }, [state.form])
 
-  const handleInsertToRequirement = useCallback((content: string) => {
-    const current = state.form.requirement
-    const newValue = current + (current ? '\n\n' : '') + content
-    dispatch({ type: 'SET_FIELD', field: 'requirement', value: newValue })
-  }, [state.form.requirement])
 
-  const handleSave = useCallback(async () => {
-    const contentToSave = state.content.generated || state.content.streaming
-    if (!contentToSave) {
-      alert('没有可保存的内容')
+
+  const handleApplyTemplate = useCallback((template: ShortStoryTemplate) => {
+    dispatch({ type: 'APPLY_TEMPLATE', template })
+  }, [])
+
+  const handleQuickCreateProject = useCallback(() => {
+    // 检查登录状态
+    if (!isAuthenticated) {
+      alert('请先登录后再创建项目')
+      navigate('/login')
       return
     }
 
-    try {
-      await httpClient.post(`/novel_projects/${project?.id || 1}/save-content`, {
-        content: contentToSave,
-        title: state.form.title,
-      })
-      alert('小说已保存到项目')
-    } catch (err: any) {
-      alert(err.response?.data?.message || err.message || '保存失败')
+    // 检查是否有内容
+    const contentToSave = state.content.generated || state.content.streaming
+    if (!contentToSave) {
+      alert('没有可保存的内容，请先生成小说')
+      return
     }
-  }, [state.content.generated, state.content.streaming, state.form.title, project])
+
+    setCreateDialogOpen(true)
+  }, [isAuthenticated, navigate, state.content.generated, state.content.streaming])
+
+  const handleCreateSuccess = useCallback((projectId: number) => {
+    // alert('项目创建成功！')
+    // 可选：跳转到项目详情页
+    navigate(`/novel_projects/${projectId}`)
+  }, [])
 
   const handleCopy = useCallback(async () => {
     const text = state.content.generated || state.content.streaming
@@ -206,7 +217,7 @@ const NovelGeneratorPage: React.FC = () => {
             <Grid2
               size={{
                 xs: 12,
-                md: state.showChatPanel ? 8 : 12
+                md: 12
               }}
             >
               <Paper
@@ -242,18 +253,11 @@ const NovelGeneratorPage: React.FC = () => {
                       color: 'primary.main',
                       fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.5rem' }
                     }} />
-                    AI 小说生成器
+                    AI 短篇小说生成器
                   </Typography>
-                  <Tooltip title="AI助手">
-                    <IconButton
-                      onClick={() => dispatch({ type: 'SET_CHAT_PANEL', show: !state.showChatPanel })}
-                      sx={{
-                        p: { xs: 0.5, sm: 1 }
-                      }}
-                    >
-                      <ChatIcon />
-                    </IconButton>
-                  </Tooltip>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <QuickTemplateSelector onSelectTemplate={handleApplyTemplate} />
+                  </Box>
                 </Box>
 
                 {/* 主要内容 */}
@@ -269,7 +273,7 @@ const NovelGeneratorPage: React.FC = () => {
                   <Grid2
                     size={{
                       xs: 12,
-                      lg: state.showChatPanel ? 12 : 4
+                      lg: 4
                     }}
                   >
                     <Paper
@@ -295,6 +299,23 @@ const NovelGeneratorPage: React.FC = () => {
                         }}
                       >
                         创作参数
+                      </Typography>
+
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          mb: { xs: 1, sm: 1.5, md: 2 },
+                          color: 'text.secondary',
+                          fontStyle: 'italic',
+                          px: 1,
+                          py: 0.5,
+                          bgcolor: alpha(theme.palette.info.main, 0.1),
+                          borderRadius: 1,
+                          borderLeft: `3px solid ${theme.palette.info.main}`,
+                        }}
+                      >
+                        💡 专注于1000-5000字的短篇小说创作
                       </Typography>
 
                       <Box sx={{
@@ -340,24 +361,29 @@ const NovelGeneratorPage: React.FC = () => {
                               >
                                 类型
                               </FormLabel>
-                              <Select
+                              <Autocomplete
+                                freeSolo
                                 value={state.form.genre}
-                                onChange={(e) => handleFieldChange('genre', e.target.value)}
+                                onChange={(_, newValue) => handleFieldChange('genre', newValue || '')}
+                                inputValue={state.form.genre}
+                                onInputChange={(_, newInputValue) => handleFieldChange('genre', newInputValue)}
+                                options={GENRE_OPTIONS}
                                 disabled={state.isStreaming}
-                                sx={inputStyle}
-                                size="small"
-                              >
-                                <MenuItem value="">选择类型</MenuItem>
-                                {GENRE_OPTIONS.map((g) => (
-                                  <MenuItem key={g} value={g}>
-                                    {g}
-                                  </MenuItem>
-                                ))}
-                                {/* 如果当前值不在预设选项中，单独添加一项以确保显示正确 */}
-                                {state.form.genre && !GENRE_OPTIONS.includes(state.form.genre) && (
-                                  <MenuItem value={state.form.genre}>{state.form.genre}</MenuItem>
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="请输入或选择类型"
+                                    variant="outlined"
+                                    size="small"
+                                    sx={inputStyle}
+                                  />
                                 )}
-                              </Select>
+                                sx={{
+                                  '& .MuiAutocomplete-popupIndicator': {
+                                    color: 'text.secondary'
+                                  }
+                                }}
+                              />
                             </FormControl>
                           </Grid2>
                           <Grid2 size={{ xs: 6 }}>
@@ -371,24 +397,29 @@ const NovelGeneratorPage: React.FC = () => {
                               >
                                 风格
                               </FormLabel>
-                              <Select
+                              <Autocomplete
+                                freeSolo
                                 value={state.form.style}
-                                onChange={(e) => handleFieldChange('style', e.target.value)}
+                                onChange={(_, newValue) => handleFieldChange('style', newValue || '')}
+                                inputValue={state.form.style}
+                                onInputChange={(_, newInputValue) => handleFieldChange('style', newInputValue)}
+                                options={STYLE_OPTIONS}
                                 disabled={state.isStreaming}
-                                sx={inputStyle}
-                                size="small"
-                              >
-                                <MenuItem value="">选择风格</MenuItem>
-                                {STYLE_OPTIONS.map((s) => (
-                                  <MenuItem key={s} value={s}>
-                                    {s}
-                                  </MenuItem>
-                                ))}
-                                {/* 如果当前值不在预设选项中，单独添加一项以确保显示正确 */}
-                                {state.form.style && !STYLE_OPTIONS.includes(state.form.style) && (
-                                  <MenuItem value={state.form.style}>{state.form.style}</MenuItem>
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="请输入或选择风格"
+                                    variant="outlined"
+                                    size="small"
+                                    sx={inputStyle}
+                                  />
                                 )}
-                              </Select>
+                                sx={{
+                                  '& .MuiAutocomplete-popupIndicator': {
+                                    color: 'text.secondary'
+                                  }
+                                }}
+                              />
                             </FormControl>
                           </Grid2>
                         </Grid2>
@@ -445,7 +476,7 @@ const NovelGeneratorPage: React.FC = () => {
                   <Grid2
                     size={{
                       xs: 12,
-                      lg: state.showChatPanel ? 12 : 8
+                      lg: 8
                     }}
                   >
                     <Paper
@@ -461,49 +492,65 @@ const NovelGeneratorPage: React.FC = () => {
                         border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
                       }}
                     >
-                      <Box sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        mb: { xs: 1, sm: 1.5, md: 2 }
-                      }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                         <Typography
                           variant="h6"
                           sx={{
                             fontWeight: 700,
-                            fontSize: { xs: '1rem', sm: '1.1rem', md: '1.25rem' }
+                            fontSize: { xs: '1rem', sm: '1.1rem', md: '1.25rem' },
+                            flex: 1,
                           }}
                         >
                           小说内容
                         </Typography>
-                        <Box>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                           {(state.content.generated || state.content.streaming) && (
                             <>
-                              <IconButton
-                                onClick={handleSave}
-                                sx={{
-                                  mr: 1,
-                                  p: { xs: 0.5, sm: 1 }
-                                }}
-                              >
-                                <SaveIcon
+                              <motion.div variants={scaleVariants} whileHover="hover" whileTap="tap">
+                                <Button
+                                  variant="contained"
+                                  startIcon={<SaveIcon />}
+                                  onClick={handleQuickCreateProject}
+                                  size="small"
                                   sx={{
-                                    fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.5rem' }
+                                    borderRadius: 2,
+                                    py: 0.8,
+                                    px: 2,
+                                    fontWeight: 600,
+                                    fontSize: { xs: '0.75rem', sm: '0.85rem', md: '0.9rem' },
+                                    background: (theme) =>
+                                      `linear-gradient(135deg, ${theme.palette.success.light} 0%, ${theme.palette.success.main} 100%)`,
+                                    boxShadow: (theme) => `0 4px 12px ${alpha(theme.palette.success.main, 0.3)}`,
+                                    '&:hover': {
+                                      background: (theme) =>
+                                        `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.8)} 0%, ${theme.palette.success.dark} 100%)`,
+                                      boxShadow: (theme) => `0 6px 16px ${alpha(theme.palette.success.main, 0.4)}`,
+                                    }
                                   }}
-                                />
-                              </IconButton>
-                              <IconButton
-                                onClick={handleCopy}
-                                sx={{
-                                  p: { xs: 0.5, sm: 1 }
-                                }}
-                              >
-                                <ContentCopyIcon
+                                >
+                                  保存项目
+                                </Button>
+                              </motion.div>
+                              <Tooltip title="复制内容">
+                                <IconButton
+                                  onClick={handleCopy}
+                                  size="small"
                                   sx={{
-                                    fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.5rem' }
+                                    borderRadius: 1.5,
+                                    backgroundColor: alpha(theme.palette.info.main, 0.1),
+                                    color: 'info.main',
+                                    '&:hover': {
+                                      backgroundColor: alpha(theme.palette.info.main, 0.2),
+                                    }
                                   }}
-                                />
-                              </IconButton>
+                                >
+                                  <ContentCopyIcon
+                                    sx={{
+                                      fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.3rem' }
+                                    }}
+                                  />
+                                </IconButton>
+                              </Tooltip>
                             </>
                           )}
                         </Box>
@@ -642,65 +689,22 @@ const NovelGeneratorPage: React.FC = () => {
               </Paper>
             </Grid2>
 
-            {/* 右侧 AI 助手 */}
-            {state.showChatPanel && (
-              <Grid2 size={{ xs: 12, md: 4 }}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: { xs: 1.5, sm: 2, md: 2 },
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.8)} 0%, ${alpha(theme.palette.background.paper, 0.6)} 100%)`,
-                    backdropFilter: 'blur(24px)',
-                    borderRadius: { xs: 2, sm: 2.5, md: 3 },
-                  }}
-                >
-                  <Box sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: { xs: 1, sm: 1.5, md: 2 }
-                  }}>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        fontSize: { xs: '1rem', sm: '1.1rem', md: '1.25rem' }
-                      }}
-                    >
-                      <ChatIcon sx={{
-                        mr: 1,
-                        color: 'primary.main',
-                        fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.5rem' }
-                      }} />
-                      AI 创作助手
-                    </Typography>
-                    <IconButton
-                      onClick={() => dispatch({ type: 'SET_CHAT_PANEL', show: false })}
-                      sx={{
-                        p: { xs: 0.5, sm: 1 }
-                      }}
-                    >
-                      <CloseIcon />
-                    </IconButton>
-                  </Box>
-                  <Box sx={{
-                    flex: 1,
-                    overflow: 'hidden',
-                    minHeight: 0
-                  }}>
-                    <AIChatPanel onInsertContent={handleInsertToRequirement} />
-                  </Box>
-                </Paper>
-              </Grid2>
-            )}
+
           </Grid2>
         </Container>
       </motion.div>
+
+      {/* 快捷创建项目对话框 */}
+      <QuickCreateProjectDialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        defaultTitle={state.form.title}
+        defaultDescription={state.form.requirement}
+        genre={state.form.genre}
+        style={state.form.style}
+        content={state.content.generated || state.content.streaming}
+        onSuccess={handleCreateSuccess}
+      />
     </Box>
   )
 }

@@ -12,17 +12,19 @@ class NovelProjectBase(BaseModel):
     """小说项目基础模型"""
     title: str = Field(..., max_length=200, description="项目标题")
     description: Optional[str] = Field(None, description="项目描述")
-    genre: Optional[str] = Field(None, max_length=50, description="小说类型")
-    style: Optional[str] = Field(None, max_length=50, description="写作风格")
+    genre: Optional[str] = Field(None, max_length=100, description="小说类型")
+    style: Optional[str] = Field(None, max_length=500, description="写作风格")
     status: Optional[str] = Field("draft", description="项目状态")
     content: Optional[str] = Field(None, description="小说内容")
     word_count: Optional[int] = Field(0, description="字数统计")
+    use_chapter_system: Optional[bool] = Field(False, description="是否启用章节管理")
 
 
 class NovelProjectCreate(NovelProjectBase):
     """创建小说项目请求模型"""
     content: Optional[str] = Field(None, description="小说内容")
     word_count: Optional[int] = Field(0, description="字数统计")
+    use_chapter_system: Optional[bool] = Field(False, description="是否启用章节管理")
 
 
 class NovelProjectUpdate(NovelProjectBase):
@@ -31,6 +33,7 @@ class NovelProjectUpdate(NovelProjectBase):
     status: Optional[str] = Field(None, description="项目状态")
     content: Optional[str] = Field(None, description="小说内容")
     word_count: Optional[int] = Field(None, description="字数统计")
+    use_chapter_system: Optional[bool] = Field(None, description="是否启用章节管理")
 
 
 class NovelProjectResponse(NovelProjectBase):

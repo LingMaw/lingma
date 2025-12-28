@@ -42,36 +42,4 @@ export const novelGeneratorAPI = {
     return response.body
   },
 
-  /**
-   * 与AI进行对话
-   * @param messages 对话历史消息列表
-   */
-  async chatWithAI(messages: Array<{ role: string; content: string }>): Promise<{ reply: string }> {
-    const response: AxiosResponse<{ reply: string }> = await httpClient.post('/novel/chat', { messages })
-    return response.data
-  },
-
-  /**
-   * 流式与AI进行对话
-   * @param messages 对话历史消息列表
-   * @returns 流式响应
-   */
-  async chatWithAIStream(messages: Array<{ role: string; content: string }>) {
-    // 使用原生fetch实现流式请求
-    const token = localStorage.getItem('token')
-    const response = await fetch('/api/novel/chat-stream', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(messages),
-    })
-
-    if (!response.body) {
-      throw new Error('流式响应体为空')
-    }
-
-    return response.body
-  },
 }
