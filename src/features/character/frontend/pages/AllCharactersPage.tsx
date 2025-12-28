@@ -1,6 +1,6 @@
 /**
  * 全部角色展示页面
- * 展示系统中所有角色信息及关系网络
+ * 展示系统中所有角色信息
  */
 
 import { useEffect, useState, useMemo } from 'react'
@@ -15,11 +15,7 @@ import {
   Chip,
   Card,
   CardContent,
-  IconButton,
   InputAdornment,
-  Tab,
-  Tabs,
-  Tooltip,
   Button,
   Dialog,
   DialogTitle,
@@ -27,37 +23,54 @@ import {
   DialogActions,
   alpha,
   useTheme,
+  Skeleton,
+  IconButton,
+  Tooltip,
+  Fade,
 } from '@mui/material'
 import Grid2 from '@mui/material/Grid2'
 import {
   Search as SearchIcon,
   Person as PersonIcon,
-  AccountTree as RelationIcon,
-  Visibility as ViewIcon,
   FilterList as FilterIcon,
   Add as AddIcon,
+  Close as CloseIcon,
+  AutoAwesome as AutoAwesomeIcon,
+  WorkOutline as WorkIcon,
+  CalendarMonth as CalendarIcon,
+  Female as FemaleIcon,
+  Male as MaleIcon,
+  Transgender as TransgenderIcon,
 } from '@mui/icons-material'
 import { motion, AnimatePresence } from 'framer-motion'
-import { containerVariants, itemVariants, pageVariants } from '@/frontend/core/animation'
+import { containerVariants, itemVariants, pageVariants, scaleVariants } from '@/frontend/core/animation'
 import { characterAPI, characterTemplateAPI } from '@/features/character/frontend/api'
-import type { Character, CharacterTemplate, RelationGraphData, RelationGraphLink, RelationGraphNode } from '@/features/character/frontend/types'
+import type { Character, CharacterTemplate } from '@/features/character/frontend/types'
 
-// 视图模式
-type ViewMode = 'grid' | 'relations'
+// 性别图标组件
+function GenderIcon({ gender }: { gender?: string }) {
+  if (!gender) return null
+  const lowerGender = gender.toLowerCase()
+  if (lowerGender.includes('女') || lowerGender === 'female') {
+    return <FemaleIcon sx={{ fontSize: 16, color: 'secondary.main' }} />
+  }
+  if (lowerGender.includes('男') || lowerGender === 'male') {
+    return <MaleIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+  }
+  return <TransgenderIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+}
 
 export default function AllCharactersPage() {
   const navigate = useNavigate()
   const theme = useTheme()
 
   const [characters, setCharacters] = useState<Character[]>([])
-  const [graphData, setGraphData] = useState<RelationGraphData | null>(null)
   const [templates, setTemplates] = useState<CharacterTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
-  const [selectedNode, setSelectedNode] = useState<number | null>(null)
+  const [searchFocused, setSearchFocused] = useState(false)
 
   // 创建角色对话框状态
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -73,12 +86,8 @@ export default function AllCharactersPage() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [charactersData, graphDataResult] = await Promise.all([
-        characterAPI.list(undefined, true),
-        characterAPI.getAllWithRelations(),
-      ])
+      const charactersData = await characterAPI.list(undefined, true)
       setCharacters(charactersData)
-      setGraphData(graphDataResult)
     } catch (err) {
       setError('加载角色数据失败')
       console.error(err)
@@ -165,300 +174,6 @@ export default function AllCharactersPage() {
     })
   }, [characters, searchQuery, categoryFilter])
 
-  // 过滤关系图数据
-  const filteredGraphData = useMemo(() => {
-    if (!graphData || !categoryFilter) return graphData
-    
-    // 获取符合分类的节点
-    const filteredNodes = graphData.nodes.filter(node => {
-      const char = characters.find(c => c.id === node.id)
-      return char && char.basic_info?.category === categoryFilter
-    })
-    
-    // 获取涉及这些节点的关系
-    const filteredNodeIds = new Set(filteredNodes.map(node => node.id))
-    const filteredLinks = graphData.links.filter(link => 
-      filteredNodeIds.has(link.source) || filteredNodeIds.has(link.target)
-    )
-    
-    return {
-      nodes: filteredNodes,
-      links: filteredLinks,
-    }
-  }, [graphData, categoryFilter, characters])
-
-  // 获取角色的关系数量
-  const getRelationCount = (characterId: number) => {
-    if (!graphData) return 0
-    return graphData.links.filter(
-      (link) => link.source === characterId || link.target === characterId
-    ).length
-  }
-
-  // 获取角色的关系列表
-  const getCharacterRelations = (characterId: number) => {
-    if (!graphData) return []
-    return graphData.links.filter(
-      (link) => link.source === characterId || link.target === characterId
-    )
-  }
-
-
-  // 渲染关系网络视图
-  const renderRelationsView = () => {
-    const displayGraphData = categoryFilter ? filteredGraphData : graphData
-    
-    if (!displayGraphData || displayGraphData.nodes.length === 0) {
-      return (
-        <Box 
-          component={motion.div}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          sx={{ 
-            textAlign: 'center', 
-            py: 12,
-            px: 4,
-            borderRadius: 4,
-            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
-            border: `1px dashed ${alpha(theme.palette.divider, 0.3)}`,
-          }}
-        >
-          <Box
-            sx={{
-              width: 80,
-              height: 80,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto',
-              mb: 3,
-              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
-            }}
-          >
-            <RelationIcon sx={{ fontSize: 40, color: 'text.secondary' }} />
-          </Box>
-          <Typography variant="h6" color="text.secondary" fontWeight={500}>
-            暂无角色关系数据
-          </Typography>
-          <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
-            创建角色并添加关系后，关系网络将在这里展示
-          </Typography>
-        </Box>
-      )
-    }
-
-    // 计算关系密度（用于统计卡片）
-    const avgRelations = displayGraphData.nodes.length > 0 
-      ? (displayGraphData.links.length * 2 / displayGraphData.nodes.length).toFixed(1) 
-      : '0'
-
-    return (
-      <Stack spacing={4}>
-        {/* 关系统计仪表盘 */}
-        <Grid2 container spacing={3}>
-          {/* 角色总数 */}
-          <Grid2 size={{ xs: 12, sm: 4 }}>
-            <Card
-              component={motion.div}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              sx={{
-                borderRadius: 4,
-                backdropFilter: 'blur(20px)',
-                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
-                overflow: 'hidden',
-                position: 'relative',
-              }}
-            >
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: -20,
-                  right: -20,
-                  width: 100,
-                  height: 100,
-                  borderRadius: '50%',
-                  background: alpha(theme.palette.primary.main, 0.1),
-                }}
-              />
-              <CardContent sx={{ position: 'relative', zIndex: 1 }}>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-                      boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}`,
-                    }}
-                  >
-                    <PersonIcon sx={{ color: 'white', fontSize: 24 }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h4" fontWeight={700} color="primary.main">
-                      {displayGraphData.nodes.length}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      角色总数
-                    </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid2>
-
-          {/* 关系总数 */}
-          <Grid2 size={{ xs: 12, sm: 4 }}>
-            <Card
-              component={motion.div}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              sx={{
-                borderRadius: 4,
-                backdropFilter: 'blur(20px)',
-                background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.08)} 0%, ${alpha(theme.palette.secondary.main, 0.02)} 100%)`,
-                border: `1px solid ${alpha(theme.palette.secondary.main, 0.15)}`,
-                overflow: 'hidden',
-                position: 'relative',
-              }}
-            >
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: -20,
-                  right: -20,
-                  width: 100,
-                  height: 100,
-                  borderRadius: '50%',
-                  background: alpha(theme.palette.secondary.main, 0.1),
-                }}
-              />
-              <CardContent sx={{ position: 'relative', zIndex: 1 }}>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: `linear-gradient(135deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.dark} 100%)`,
-                      boxShadow: `0 4px 14px ${alpha(theme.palette.secondary.main, 0.4)}`,
-                    }}
-                  >
-                    <RelationIcon sx={{ color: 'white', fontSize: 24 }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h4" fontWeight={700} color="secondary.main">
-                      {displayGraphData.links.length}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      关系总数
-                    </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid2>
-
-          {/* 平均关系数 */}
-          <Grid2 size={{ xs: 12, sm: 4 }}>
-            <Card
-              component={motion.div}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              sx={{
-                borderRadius: 4,
-                backdropFilter: 'blur(20px)',
-                background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.08)} 0%, ${alpha(theme.palette.success.main, 0.02)} 100%)`,
-                border: `1px solid ${alpha(theme.palette.success.main, 0.15)}`,
-                overflow: 'hidden',
-                position: 'relative',
-              }}
-            >
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: -20,
-                  right: -20,
-                  width: 100,
-                  height: 100,
-                  borderRadius: '50%',
-                  background: alpha(theme.palette.success.main, 0.1),
-                }}
-              />
-              <CardContent sx={{ position: 'relative', zIndex: 1 }}>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: `linear-gradient(135deg, ${theme.palette.success.main} 0%, ${theme.palette.success.dark} 100%)`,
-                      boxShadow: `0 4px 14px ${alpha(theme.palette.success.main, 0.4)}`,
-                    }}
-                  >
-                    <FilterIcon sx={{ color: 'white', fontSize: 24 }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h4" fontWeight={700} color="success.main">
-                      {avgRelations}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      平均关系数
-                    </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid2>
-        </Grid2>
-
-        {/* 角色关系列表 */}
-        <Box>
-          <Typography variant="h6" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <RelationIcon fontSize="small" color="primary" />
-            角色关系网络
-          </Typography>
-          <Grid2
-            container
-            spacing={3}
-            component={motion.div}
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-          >
-            {displayGraphData.nodes.map((node, index) => (
-              <Grid2 key={node.id} size={{ xs: 12, md: 6, lg: 4 }}>
-                <RelationCard
-                  node={node}
-                  relations={getCharacterRelations(node.id)}
-                  characters={characters}
-                  isSelected={selectedNode === node.id}
-                  onClick={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
-                  onViewDetail={() => navigate(`/characters/${node.id}`)}
-                  index={index}
-                />
-              </Grid2>
-            ))}
-          </Grid2>
-        </Box>
-      </Stack>
-    )
-  }
-
   return (
     <Container
       maxWidth="xl"
@@ -466,79 +181,182 @@ export default function AllCharactersPage() {
       variants={pageVariants}
       initial="initial"
       animate="animate"
-      sx={{ py: 4 }}
+      sx={{ py: { xs: 2, sm: 3, md: 4 } }}
     >
-      {/* 页面标题 */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
-        <Box>
-          <Typography variant="h4" fontWeight={700} gutterBottom>
-            角色人设库
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            查看和管理系统中的所有角色及其关系网络
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          创建角色
-        </Button>
-      </Stack>
-
-      {/* 工具栏 */}
-      <Card
+      {/* 页面标题区域 - 增强视觉层次 */}
+      <Box
         sx={{
-          mb: 3,
+          mb: 4,
+          p: { xs: 2, sm: 3, md: 4 },
+          borderRadius: 4,
+          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
+          backdropFilter: 'blur(20px)',
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={2}
+        >
+          <Box>
+            <Stack direction="row" alignItems="center" spacing={1.5} mb={1}>
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${alpha(theme.palette.primary.main, 0.7)} 100%)`,
+                  boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.3)}`,
+                }}
+              >
+                <PersonIcon sx={{ color: 'white', fontSize: 28 }} />
+              </Box>
+              <Box>
+                <Typography
+                  variant="h4"
+                  fontWeight={700}
+                  sx={{
+                    background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${theme.palette.text.secondary} 100%)`,
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                  }}
+                >
+                  角色人设库
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  共 {characters.length} 个角色 · 创作精彩故事
+                </Typography>
+              </Box>
+            </Stack>
+          </Box>
+          <Button
+            component={motion.button}
+            variants={scaleVariants}
+            whileHover="hover"
+            whileTap="tap"
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateDialogOpen(true)}
+            sx={{
+              px: 3,
+              py: 1.2,
+              borderRadius: 3,
+              fontWeight: 600,
+              boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.3)}`,
+              '&:hover': {
+                boxShadow: `0 12px 32px ${alpha(theme.palette.primary.main, 0.4)}`,
+              },
+            }}
+          >
+            创建角色
+          </Button>
+        </Stack>
+      </Box>
+
+      {/* 工具栏 - 更现代的搜索和筛选 */}
+      <Card
+        component={motion.div}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        sx={{
+          mb: 4,
           borderRadius: 4,
           backdropFilter: 'blur(20px)',
           backgroundColor: alpha(theme.palette.background.paper, 0.8),
+          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          overflow: 'visible',
         }}
       >
-        <CardContent>
-          <Stack spacing={2}>
-            {/* 搜索和视图切换 */}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
-              <TextField
-                placeholder="搜索角色..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                size="small"
-                sx={{ flex: 1, minWidth: 200 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Stack spacing={2.5}>
+            {/* 搜索框 - 增强视觉效果 */}
+            <TextField
+              placeholder="搜索角色名称..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              size="medium"
+              fullWidth
+              sx={{
+                maxWidth: { xs: '100%', md: 480 },
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 3,
+                  backgroundColor: alpha(theme.palette.background.default, 0.6),
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.background.default, 0.8),
+                  },
+                  '&.Mui-focused': {
+                    backgroundColor: theme.palette.background.paper,
+                    boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.15)}`,
+                  },
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon
+                      sx={{
+                        color: searchFocused ? 'primary.main' : 'text.secondary',
+                        transition: 'color 0.2s ease',
+                      }}
+                    />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => setSearchQuery('')}
+                      sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
 
-              <Tabs
-                value={viewMode}
-                onChange={(_, v) => setViewMode(v)}
-                sx={{
-                  minHeight: 40,
-                  '& .MuiTab-root': { minHeight: 40, py: 1 },
-                }}
-              >
-                <Tab icon={<PersonIcon />} iconPosition="start" label="卡片视图" value="grid" />
-                <Tab icon={<RelationIcon />} iconPosition="start" label="关系视图" value="relations" />
-              </Tabs>
-            </Stack>
-
-            {/* 分类筛选 */}
+            {/* 分类筛选 - 更好的视觉反馈 */}
             {categories.length > 0 && (
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <FilterIcon fontSize="small" color="action" />
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Tooltip title="筛选分类">
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 32,
+                      height: 32,
+                      borderRadius: 2,
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    }}
+                  >
+                    <FilterIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                  </Box>
+                </Tooltip>
                 <Chip
                   label="全部"
                   size="small"
                   variant={categoryFilter === null ? 'filled' : 'outlined'}
                   color={categoryFilter === null ? 'primary' : 'default'}
                   onClick={() => setCategoryFilter(null)}
-                  sx={{ cursor: 'pointer' }}
+                  sx={{
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    borderRadius: 2,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      transform: 'translateY(-1px)',
+                    },
+                  }}
                 />
                 {categories.map((cat) => (
                   <Chip
@@ -548,7 +366,15 @@ export default function AllCharactersPage() {
                     variant={categoryFilter === cat ? 'filled' : 'outlined'}
                     color={categoryFilter === cat ? 'primary' : 'default'}
                     onClick={() => setCategoryFilter(cat)}
-                    sx={{ cursor: 'pointer' }}
+                    sx={{
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      borderRadius: 2,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        transform: 'translateY(-1px)',
+                      },
+                    }}
                   />
                 ))}
               </Stack>
@@ -557,72 +383,175 @@ export default function AllCharactersPage() {
         </CardContent>
       </Card>
 
-      {/* 错误提示 */}
-      {error && (
-        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      {/* 错误提示 - 更优雅的样式 */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <Alert
+              severity="error"
+              onClose={() => setError(null)}
+              sx={{
+                mb: 3,
+                borderRadius: 3,
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              {error}
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 主内容区 */}
       {loading ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography color="text.secondary">加载中...</Typography>
-        </Box>
+        // 加载状态 - 骨架屏
+        <Grid2 container spacing={3}>
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <Grid2 key={i} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <Card
+                sx={{
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                }}
+              >
+                <CardContent sx={{ p: 2.5 }}>
+                  <Stack spacing={2}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                      <Skeleton variant="text" width="60%" height={32} />
+                      <Skeleton variant="rounded" width={60} height={24} />
+                    </Stack>
+                    <Stack spacing={1}>
+                      <Skeleton variant="text" width="40%" />
+                      <Skeleton variant="text" width="35%" />
+                      <Skeleton variant="text" width="45%" />
+                    </Stack>
+                    <Skeleton variant="text" width="30%" />
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid2>
+          ))}
+        </Grid2>
+      ) : filteredCharacters.length === 0 ? (
+        // 空状态 - 更友好的展示
+        <Fade in timeout={500}>
+          <Box
+            sx={{
+              textAlign: 'center',
+              py: { xs: 6, md: 10 },
+              px: 3,
+            }}
+          >
+            <Box
+              sx={{
+                width: 120,
+                height: 120,
+                mx: 'auto',
+                mb: 3,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
+              }}
+            >
+              <PersonIcon sx={{ fontSize: 56, color: alpha(theme.palette.primary.main, 0.5) }} />
+            </Box>
+            <Typography variant="h6" color="text.primary" fontWeight={600} gutterBottom>
+              {searchQuery || categoryFilter ? '未找到匹配的角色' : '暂无角色'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 400, mx: 'auto' }}>
+              {searchQuery || categoryFilter
+                ? '尝试调整搜索条件或清除筛选'
+                : '点击上方的「创建角色」按钮，开始打造你的第一个角色吧！'}
+            </Typography>
+            {!searchQuery && !categoryFilter && (
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+                sx={{ borderRadius: 3 }}
+              >
+                创建角色
+              </Button>
+            )}
+          </Box>
+        </Fade>
       ) : (
-        <AnimatePresence mode="wait">
-          {viewMode === 'grid' ? (
-            <motion.div
-              key="grid"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              {filteredCharacters.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 8 }}>
-                  <PersonIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    {searchQuery || categoryFilter ? '未找到匹配的角色' : '暂无角色数据'}
-                  </Typography>
-                </Box>
-              ) : (
-                <Grid2
-                  container
-                  spacing={3}
-                  component={motion.div}
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="show"
-                >
-                  {filteredCharacters.map((character) => (
-                    <Grid2 key={character.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                      <CharacterCardWithRelations
-                        character={character}
-                        relationCount={getRelationCount(character.id)}
-                        onClick={() => navigate(`/characters/${character.id}`)}
-                      />
-                    </Grid2>
-                  ))}
-                </Grid2>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="relations"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              {renderRelationsView()}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <Grid2
+          container
+          spacing={{ xs: 2, sm: 2.5, md: 3 }}
+          component={motion.div}
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+        >
+          {filteredCharacters.map((character) => (
+            <Grid2 key={character.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <CharacterCard
+                character={character}
+                onClick={() => navigate(`/characters/${character.id}`)}
+              />
+            </Grid2>
+          ))}
+        </Grid2>
       )}
-      {/* 创建角色对话框 */}
-      <Dialog open={createDialogOpen} onClose={handleCloseCreateDialog} maxWidth="md" fullWidth>
-        <DialogTitle>创建新角色</DialogTitle>
-        <DialogContent>
-          <Stack spacing={3} sx={{ mt: 2 }}>
+      {/* 创建角色对话框 - 现代化样式 */}
+      <Dialog
+        open={createDialogOpen}
+        onClose={handleCloseCreateDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            backdropFilter: 'blur(20px)',
+            backgroundColor: alpha(theme.palette.background.paper, 0.95),
+            overflow: 'hidden',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            pb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: 2.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${alpha(theme.palette.primary.main, 0.7)} 100%)`,
+              }}
+            >
+              <AutoAwesomeIcon sx={{ color: 'white', fontSize: 22 }} />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                创建新角色
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                为你的故事添加独特的角色
+              </Typography>
+            </Box>
+          </Stack>
+          <IconButton onClick={handleCloseCreateDialog} size="small" sx={{ opacity: 0.6 }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, py: 2 }}>
+          <Stack spacing={3}>
             <TextField
               label="角色名称"
               value={newCharacterName}
@@ -630,51 +559,92 @@ export default function AllCharactersPage() {
               fullWidth
               required
               autoFocus
+              placeholder="输入角色名称..."
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2.5,
+                },
+              }}
             />
-            
+
             {templates.length > 0 && (
-              <>
-                <Typography variant="subtitle2" color="text.secondary">
-                  选择模板（可选）:
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                  选择模板（可选）
                 </Typography>
                 <Grid2 container spacing={2}>
                   {templates.map((template) => (
                     <Grid2 key={template.id} size={{ xs: 12, sm: 6 }}>
                       <Box
-                        onClick={() => setSelectedTemplate(
-                          selectedTemplate?.id === template.id ? null : template
-                        )}
+                        component={motion.div}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() =>
+                          setSelectedTemplate(
+                            selectedTemplate?.id === template.id ? null : template
+                          )
+                        }
                         sx={{
-                          p: 2,
+                          p: 2.5,
                           border: '2px solid',
-                          borderColor: selectedTemplate?.id === template.id ? 'primary.main' : 'divider',
+                          borderColor:
+                            selectedTemplate?.id === template.id ? 'primary.main' : 'divider',
                           borderRadius: 3,
                           cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          backgroundColor: selectedTemplate?.id === template.id 
-                            ? alpha(theme.palette.primary.main, 0.08) 
-                            : 'transparent',
+                          transition: 'all 0.25s ease',
+                          backgroundColor:
+                            selectedTemplate?.id === template.id
+                              ? alpha(theme.palette.primary.main, 0.08)
+                              : 'transparent',
+                          boxShadow:
+                            selectedTemplate?.id === template.id
+                              ? `0 4px 16px ${alpha(theme.palette.primary.main, 0.2)}`
+                              : 'none',
                           '&:hover': {
                             borderColor: 'primary.main',
                             backgroundColor: alpha(theme.palette.primary.main, 0.04),
                           },
                         }}
                       >
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          {template.name}
-                        </Typography>
+                        <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            {template.name}
+                          </Typography>
+                          {selectedTemplate?.id === template.id && (
+                            <Box
+                              sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                backgroundColor: 'primary.main',
+                              }}
+                            />
+                          )}
+                        </Stack>
                         {template.category && (
-                          <Chip 
-                            label={template.category} 
-                            size="small" 
-                            sx={{ mt: 0.5, borderRadius: 1 }} 
+                          <Chip
+                            label={template.category}
+                            size="small"
+                            sx={{
+                              mt: 0.5,
+                              borderRadius: 1.5,
+                              fontWeight: 500,
+                              fontSize: '0.7rem',
+                            }}
                           />
                         )}
                         {template.description && (
-                          <Typography 
-                            variant="body2" 
-                            color="text.secondary" 
-                            sx={{ mt: 1 }}
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              mt: 1,
+                              lineHeight: 1.6,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
                           >
                             {template.description}
                           </Typography>
@@ -683,18 +653,38 @@ export default function AllCharactersPage() {
                     </Grid2>
                   ))}
                 </Grid2>
-              </>
+              </Box>
             )}
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseCreateDialog} disabled={creating}>
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2.5,
+            backgroundColor: alpha(theme.palette.background.default, 0.5),
+            borderTop: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Button
+            onClick={handleCloseCreateDialog}
+            disabled={creating}
+            sx={{ borderRadius: 2.5, px: 2.5 }}
+          >
             取消
           </Button>
           <Button
+            component={motion.button}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={selectedTemplate ? handleCreateFromTemplate : handleCreateBlank}
             variant="contained"
             disabled={!newCharacterName.trim() || creating}
+            startIcon={creating ? undefined : <AddIcon />}
+            sx={{
+              borderRadius: 2.5,
+              px: 3,
+              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+            }}
           >
             {creating ? '创建中...' : selectedTemplate ? '从模板创建' : '创建空白角色'}
           </Button>
@@ -704,446 +694,162 @@ export default function AllCharactersPage() {
   )
 }
 
-// 带关系数量的角色卡片
-interface CharacterCardWithRelationsProps {
+// 角色卡片组件 - 增强版
+interface CharacterCardProps {
   character: Character
-  relationCount: number
   onClick: () => void
 }
 
-function CharacterCardWithRelations({ character, relationCount, onClick }: CharacterCardWithRelationsProps) {
+function CharacterCard({ character, onClick }: CharacterCardProps) {
   const theme = useTheme()
+  const hasBasicInfo =
+    character.basic_info?.gender ||
+    character.basic_info?.age ||
+    character.basic_info?.occupation
 
   return (
     <Card
       component={motion.div}
       variants={itemVariants}
-      onClick={onClick}
-      sx={{
-        cursor: 'pointer',
-        borderRadius: 4,
-        backdropFilter: 'blur(20px)',
-        backgroundColor: alpha(theme.palette.background.paper, 0.8),
-        transition: 'all 0.3s ease',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: theme.shadows[8],
-        },
+      whileHover={{
+        y: -6,
+        transition: { type: 'spring', stiffness: 300, damping: 20 },
       }}
-    >
-      <CardContent>
-        {/* 头部 */}
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
-          <Typography variant="h6" fontWeight={600} noWrap sx={{ flex: 1 }}>
-            {character.name}
-          </Typography>
-          {character.basic_info?.category && (
-            <Chip
-              label={character.basic_info.category}
-              size="small"
-              sx={{ borderRadius: 2, fontWeight: 500 }}
-            />
-          )}
-        </Stack>
-
-        {/* 基本信息 */}
-        <Stack spacing={1} mb={2}>
-          {character.basic_info?.gender && (
-            <Typography variant="body2" color="text.secondary">
-              性别: {character.basic_info.gender}
-            </Typography>
-          )}
-          {character.basic_info?.age && (
-            <Typography variant="body2" color="text.secondary">
-              年龄: {character.basic_info.age}
-            </Typography>
-          )}
-          {character.basic_info?.occupation && (
-            <Typography variant="body2" color="text.secondary">
-              职业: {character.basic_info.occupation}
-            </Typography>
-          )}
-        </Stack>
-
-        {/* 底部信息 */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography variant="caption" color="text.secondary">
-            {new Date(character.created_at).toLocaleDateString()}
-          </Typography>
-          <Tooltip title="关系数量">
-            <Chip
-              icon={<RelationIcon sx={{ fontSize: 16 }} />}
-              label={relationCount}
-              size="small"
-              variant="outlined"
-              sx={{ borderRadius: 2 }}
-            />
-          </Tooltip>
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
-
-// 关系类型颜色映射
-const relationTypeColors: Record<string, string> = {
-  '朋友': '#4CAF50',
-  '敌人': '#F44336',
-  '家人': '#FF9800',
-  '恋人': '#E91E63',
-  '同事': '#2196F3',
-  '师生': '#9C27B0',
-  '对手': '#FF5722',
-  '盟友': '#00BCD4',
-}
-
-// 获取关系类型颜色
-const getRelationColor = (relationType: string, theme: ReturnType<typeof useTheme>) => {
-  return relationTypeColors[relationType] || theme.palette.primary.main
-}
-
-// 关系卡片组件
-interface RelationCardProps {
-  node: RelationGraphNode
-  relations: RelationGraphLink[]
-  characters: Character[]
-  isSelected: boolean
-  onClick: () => void
-  onViewDetail: () => void
-  index: number
-}
-
-function RelationCard({ node, relations, characters, isSelected, onClick, onViewDetail }: RelationCardProps) {
-  const theme = useTheme()
-
-  const getCharacterName = (id: number) => {
-    return characters.find((c) => c.id === id)?.name || '未知'
-  }
-
-  // 根据关系数量计算影响力等级
-  const influenceLevel = relations.length >= 5 ? '核心' : relations.length >= 3 ? '重要' : relations.length >= 1 ? '普通' : '孤立'
-  const influenceColor = relations.length >= 5 ? 'error' : relations.length >= 3 ? 'warning' : relations.length >= 1 ? 'info' : 'default'
-
-  return (
-    <Card
-      component={motion.div}
-      variants={itemVariants}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      whileHover={{ y: -4, transition: { duration: 0.2 } }}
       sx={{
         cursor: 'pointer',
         borderRadius: 4,
         backdropFilter: 'blur(20px)',
-        background: isSelected 
-          ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.12)} 0%, ${alpha(theme.palette.primary.main, 0.04)} 100%)`
-          : alpha(theme.palette.background.paper, 0.85),
-        border: `1px solid ${isSelected ? theme.palette.primary.main : alpha(theme.palette.divider, 0.1)}`,
-        boxShadow: isSelected 
-          ? `0 8px 32px ${alpha(theme.palette.primary.main, 0.25)}` 
-          : `0 4px 20px ${alpha(theme.palette.common.black, 0.08)}`,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        backgroundColor: alpha(theme.palette.background.paper, 0.85),
+        border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+        transition: 'box-shadow 0.3s ease, border-color 0.3s ease',
         overflow: 'hidden',
         position: 'relative',
         '&:hover': {
-          boxShadow: `0 12px 40px ${alpha(theme.palette.primary.main, 0.15)}`,
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+          boxShadow: `0 20px 40px ${alpha(theme.palette.common.black, 0.1)}`,
+          borderColor: alpha(theme.palette.primary.main, 0.2),
+          '& .card-accent': {
+            opacity: 1,
+          },
         },
       }}
     >
       {/* 顶部装饰条 */}
       <Box
+        className="card-accent"
         sx={{
-          height: 4,
-          background: isSelected
-            ? `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
-            : `linear-gradient(90deg, ${alpha(theme.palette.primary.main, 0.3)}, ${alpha(theme.palette.secondary.main, 0.3)})`,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${alpha(theme.palette.primary.main, 0.3)} 100%)`,
+          opacity: 0,
+          transition: 'opacity 0.3s ease',
         }}
       />
 
-      <CardContent sx={{ pt: 2.5 }}>
+      <CardContent sx={{ p: 2.5 }}>
         {/* 头部 */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            {/* 头像占位 */}
-            <Box
+          <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              noWrap
               sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 3,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.15)} 0%, ${alpha(theme.palette.secondary.main, 0.15)} 100%)`,
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                lineHeight: 1.3,
+                mb: 0.5,
               }}
             >
-              <PersonIcon sx={{ color: 'primary.main', fontSize: 24 }} />
-            </Box>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.3 }}>
-                {node.name}
-              </Typography>
-              {node.category && (
-                <Chip 
-                  label={node.category} 
-                  size="small" 
-                  sx={{ 
-                    mt: 0.5, 
-                    height: 20, 
-                    fontSize: 11,
-                    borderRadius: 1.5,
-                    background: alpha(theme.palette.primary.main, 0.1),
-                    color: 'primary.main',
-                    fontWeight: 500,
-                  }} 
-                />
-              )}
-            </Box>
-          </Stack>
-          <Stack direction="row" spacing={0.5} alignItems="center">
+              {character.name}
+            </Typography>
+          </Box>
+          {character.basic_info?.category && (
             <Chip
-              label={influenceLevel}
+              label={character.basic_info.category}
               size="small"
-              color={influenceColor as 'error' | 'warning' | 'info' | 'default'}
-              sx={{ 
-                height: 22, 
-                fontSize: 11, 
-                fontWeight: 600,
-                borderRadius: 1.5,
+              sx={{
+                borderRadius: 2,
+                fontWeight: 500,
+                fontSize: '0.7rem',
+                height: 24,
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                color: 'primary.main',
+                border: 'none',
               }}
             />
-            <Tooltip title="查看详情">
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onViewDetail()
-                }}
-                sx={{
-                  backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                  '&:hover': {
-                    backgroundColor: alpha(theme.palette.primary.main, 0.15),
-                  },
-                }}
-              >
-                <ViewIcon fontSize="small" color="primary" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+          )}
         </Stack>
 
-        {/* 关系统计 */}
+        {/* 基本信息 - 使用图标增强 */}
+        {hasBasicInfo ? (
+          <Stack spacing={1} mb={2}>
+            {character.basic_info?.gender && (
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <GenderIcon gender={character.basic_info.gender} />
+                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1 }}>
+                  {character.basic_info.gender}
+                </Typography>
+              </Stack>
+            )}
+            {character.basic_info?.age && (
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <CalendarIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1 }}>
+                  {character.basic_info.age}
+                </Typography>
+              </Stack>
+            )}
+            {character.basic_info?.occupation && (
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <WorkIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  noWrap
+                  sx={{ lineHeight: 1 }}
+                >
+                  {character.basic_info.occupation}
+                </Typography>
+              </Stack>
+            )}
+          </Stack>
+        ) : (
+          <Box
+            sx={{
+              py: 2,
+              mb: 2,
+              borderRadius: 2,
+              backgroundColor: alpha(theme.palette.text.secondary, 0.05),
+              textAlign: 'center',
+            }}
+          >
+            <Typography variant="caption" color="text.disabled">
+              点击编辑角色信息
+            </Typography>
+          </Box>
+        )}
+
+        {/* 底部信息 - 更好的布局 */}
         <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            mb: 2,
-            py: 1,
-            px: 1.5,
-            borderRadius: 2,
-            background: alpha(theme.palette.action.hover, 0.4),
+            pt: 1.5,
+            borderTop: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
           }}
         >
-          <RelationIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-          <Typography variant="body2" color="text.secondary">
-            关系网络
+          <Typography
+            variant="caption"
+            color="text.disabled"
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+          >
+            <CalendarIcon sx={{ fontSize: 12 }} />
+            创建于 {new Date(character.created_at).toLocaleDateString('zh-CN')}
           </Typography>
-          <Box sx={{ flex: 1 }} />
-          <Chip
-            label={`${relations.length} 个关系`}
-            size="small"
-            sx={{
-              height: 22,
-              fontSize: 11,
-              fontWeight: 600,
-              background: alpha(theme.palette.primary.main, 0.1),
-              color: 'primary.main',
-            }}
-          />
-        </Box>
-
-        {/* 关系列表 */}
-        <Box>
-          {relations.length === 0 ? (
-            <Box 
-              sx={{ 
-                textAlign: 'center', 
-                py: 3,
-                px: 2,
-                borderRadius: 2,
-                border: `1px dashed ${alpha(theme.palette.divider, 0.3)}`,
-                background: alpha(theme.palette.action.hover, 0.2),
-              }}
-            >
-              <Typography variant="body2" color="text.disabled">
-                暂无关系连接
-              </Typography>
-            </Box>
-          ) : (
-            <Stack 
-              spacing={1} 
-              sx={{ 
-                maxHeight: isSelected ? 280 : 160, 
-                overflow: 'auto',
-                pr: 0.5,
-                '&::-webkit-scrollbar': {
-                  width: 4,
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: alpha(theme.palette.primary.main, 0.2),
-                  borderRadius: 2,
-                },
-              }}
-            >
-              <AnimatePresence>
-                {relations.slice(0, isSelected ? undefined : 3).map((rel, idx) => {
-                  const isSource = rel.source === node.id
-                  const otherName = getCharacterName(isSource ? rel.target : rel.source)
-                  const relationColor = getRelationColor(rel.relation_type, theme)
-
-                  return (
-                    <Box
-                      component={motion.div}
-                      key={idx}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5,
-                        py: 1,
-                        px: 1.5,
-                        borderRadius: 2,
-                        background: `linear-gradient(90deg, ${alpha(relationColor, 0.08)} 0%, transparent 100%)`,
-                        border: `1px solid ${alpha(relationColor, 0.15)}`,
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          background: `linear-gradient(90deg, ${alpha(relationColor, 0.15)} 0%, ${alpha(relationColor, 0.05)} 100%)`,
-                          transform: 'translateX(4px)',
-                        },
-                      }}
-                    >
-                      {/* 关系类型标签 */}
-                      <Chip
-                        label={rel.relation_type}
-                        size="small"
-                        sx={{ 
-                          fontSize: 11, 
-                          height: 22, 
-                          fontWeight: 600,
-                          borderRadius: 1.5,
-                          background: alpha(relationColor, 0.15),
-                          color: relationColor,
-                          border: `1px solid ${alpha(relationColor, 0.3)}`,
-                          minWidth: 48,
-                        }}
-                      />
-
-                      {/* 方向指示器 */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: 24,
-                          height: 24,
-                          borderRadius: '50%',
-                          background: alpha(relationColor, 0.1),
-                        }}
-                      >
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            color: relationColor,
-                            fontWeight: 700,
-                            fontSize: 12,
-                          }}
-                        >
-                          {rel.source === rel.target ? '⟷' : isSource ? '→' : '←'}
-                        </Typography>
-                      </Box>
-
-                      {/* 对方角色名 */}
-                      <Typography 
-                        variant="body2" 
-                        fontWeight={600} 
-                        noWrap 
-                        sx={{ 
-                          flex: 1,
-                          color: 'text.primary',
-                        }}
-                      >
-                        {otherName}
-                      </Typography>
-
-                      {/* 关系强度条 */}
-                      <Tooltip title={`关系强度: ${rel.strength}/10`} placement="top">
-                        <Box
-                          sx={{
-                            width: 50,
-                            height: 6,
-                            borderRadius: 3,
-                            backgroundColor: alpha(relationColor, 0.15),
-                            overflow: 'hidden',
-                            position: 'relative',
-                          }}
-                        >
-                          <Box
-                            component={motion.div}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${rel.strength * 10}%` }}
-                            transition={{ duration: 0.5, delay: idx * 0.1 }}
-                            sx={{
-                              height: '100%',
-                              background: `linear-gradient(90deg, ${relationColor}, ${alpha(relationColor, 0.7)})`,
-                              borderRadius: 3,
-                            }}
-                          />
-                        </Box>
-                      </Tooltip>
-                    </Box>
-                  )
-                })}
-              </AnimatePresence>
-
-              {/* 查看更多提示 */}
-              {!isSelected && relations.length > 3 && (
-                <Box
-                  component={motion.div}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  sx={{
-                    textAlign: 'center',
-                    py: 1,
-                    borderRadius: 2,
-                    background: alpha(theme.palette.primary.main, 0.05),
-                    border: `1px dashed ${alpha(theme.palette.primary.main, 0.2)}`,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      background: alpha(theme.palette.primary.main, 0.1),
-                    },
-                  }}
-                >
-                  <Typography 
-                    variant="caption" 
-                    color="primary" 
-                    fontWeight={600}
-                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}
-                  >
-                    点击展开查看全部 {relations.length} 个关系
-                  </Typography>
-                </Box>
-              )}
-            </Stack>
-          )}
         </Box>
       </CardContent>
     </Card>
   )
 }
+
