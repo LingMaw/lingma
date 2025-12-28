@@ -13,7 +13,15 @@ from tortoise import Tortoise
 
 from src.backend.core.dependencies import CurrentUserId
 
-from .schemas import AppOverviewResponse, SystemInfoResponse, SystemResource
+from .schemas import (
+    AppOverviewResponse,
+    NovelStatistics,
+    RecentProjectItem,
+    RecentProjectsResponse,
+    SystemInfoResponse,
+    SystemInfoSummary,
+    SystemResource,
+)
 
 router = APIRouter()
 
@@ -66,11 +74,33 @@ async def get_app_overview(_user_id: CurrentUserId, request: Request):
     # 简单判断 debug 模式
     env = "Development"  # 可以从配置中读取，这里作为模板默认显示 Dev
 
+    # 5. 获取小说项目统计数据
+    from src.features.chapter.backend.models import Chapter
+    from src.features.novel_outline.backend.models import OutlineNode
+    from src.features.novel_project.backend.models import NovelProject
+
+    project_count = await NovelProject.all().count()
+    chapter_count = await Chapter.all().count()
+    outline_node_count = await OutlineNode.all().count()
+
+    # 计算总字数：项目内容 + 章节内容
+    projects = await NovelProject.all()
+    chapters = await Chapter.all()
+    total_words = sum(p.word_count for p in projects) + sum(c.word_count for c in chapters)
+
+    novel_stats = NovelStatistics(
+        project_count=project_count,
+        chapter_count=chapter_count,
+        outline_node_count=outline_node_count,
+        total_words=total_words,
+    )
+
     return AppOverviewResponse(
         api_count=api_count,
         feature_count=feature_count,
         db_status=db_status,
         environment=env,
+        novel_stats=novel_stats,
     )
 
 
@@ -130,4 +160,112 @@ async def get_system_info(_user_id: CurrentUserId):
         uptime_seconds=uptime_seconds,
         version="v1.0.0",
         os=f"{platform.system()} {platform.release()}",
+    )
+
+
+@router.get("/recent-projects", response_model=RecentProjectsResponse)
+async def get_recent_projects(user_id: CurrentUserId):
+    """
+    获取最近更新的项目列表（按更新时间倒序）
+    """
+    from src.features.chapter.backend.models import Chapter
+    from src.features.novel_project.backend.models import NovelProject
+
+    # 查询用户的项目，按更新时间倒序，限制6条
+    projects = (
+        await NovelProject.filter(user_id=user_id)
+        .order_by("-updated_at")
+        .limit(6)
+    )
+
+    total_count = await NovelProject.filter(user_id=user_id).count()
+
+    # 生成封面颜色（基于项目ID的简单哈希）
+    color_palette = [
+        "#667eea",  # 紫色
+        "#3b82f6",  # 蓝色
+        "#10b981",  # 绿色
+        "#f59e0b",  # 橙色
+        "#ef4444",  # 红色
+        "#8b5cf6",  # 紫罗兰
+    ]
+
+    items = []
+    for project in projects:
+        # 统计章节数量
+        chapter_count = await Chapter.filter(project_id=project.id).count()
+
+        # 计算总字数：项目内容字数 + 章节字数总和
+        chapters = await Chapter.filter(project_id=project.id)
+        chapter_words = sum(c.word_count for c in chapters)
+        total_word_count = project.word_count + chapter_words
+
+        # 选择封面颜色
+        cover_color = color_palette[project.id % len(color_palette)]
+
+        items.append(
+            RecentProjectItem(
+                id=project.id,
+                title=project.title,
+                status=project.status,
+                word_count=total_word_count,
+                chapter_count=chapter_count,
+                updated_at=project.updated_at,
+                cover_color=cover_color,
+            ),
+        )
+
+    return RecentProjectsResponse(items=items, total_count=total_count)
+
+
+@router.get("/statistics", response_model=NovelStatistics)
+async def get_statistics(user_id: CurrentUserId):
+    """
+    获取小说创作统计数据
+    """
+    from src.features.chapter.backend.models import Chapter
+    from src.features.novel_outline.backend.models import OutlineNode
+    from src.features.novel_project.backend.models import NovelProject
+
+    project_count = await NovelProject.filter(user_id=user_id).count()
+    
+    # 章节统计：通过project外键关联
+    projects = await NovelProject.filter(user_id=user_id)
+    project_ids = [p.id for p in projects]
+    chapter_count = await Chapter.filter(project_id__in=project_ids).count() if project_ids else 0
+    
+    # 大纲节点统计：通过project外键关联
+    outline_node_count = await OutlineNode.filter(project_id__in=project_ids).count() if project_ids else 0
+
+    # 计算总字数：项目内容 + 章节内容
+    chapters = await Chapter.filter(project_id__in=project_ids) if project_ids else []
+    total_words = sum(p.word_count for p in projects) + sum(c.word_count for c in chapters)
+
+    return NovelStatistics(
+        project_count=project_count,
+        chapter_count=chapter_count,
+        outline_node_count=outline_node_count,
+        total_words=total_words,
+    )
+
+
+@router.get("/system-summary", response_model=SystemInfoSummary)
+async def get_system_summary(_user_id: CurrentUserId):
+    """
+    获取系统信息摘要（用于折叠区域）
+    """
+    from tortoise import Tortoise
+
+    # 检查数据库连接
+    try:
+        conn = Tortoise.get_connection("default")
+        await conn.execute_query("SELECT 1")
+        db_status = "已连接"
+    except Exception:
+        db_status = "断开"
+
+    return SystemInfoSummary(
+        version="v1.0.0",
+        environment="Development",
+        db_status=db_status,
     )
