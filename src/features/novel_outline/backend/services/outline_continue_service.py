@@ -153,10 +153,12 @@ class OutlineContinueService:
         
         # 计算最后一章的编号
         chapter_nodes = [n for n in nodes if n.node_type == "chapter"]
+        # 构建父节点position映射
+        parent_position_map = {node.id: node.position for node in nodes}
         chapter_nodes_sorted = sorted(
             chapter_nodes,
             key=lambda n: (
-                n.parent.position if n.parent else 0,
+                parent_position_map.get(n.parent_id, 0),
                 n.position
             )
         )
@@ -308,7 +310,7 @@ class OutlineContinueService:
                     node_type="volume"
                 ).order_by("-position").first()
                 
-                vol_position = (max_vol.position + 1) if max_vol else 0
+                vol_position = (max_vol.position + 1) if (max_vol and max_vol.position is not None) else 0
                 
                 # 创建新卷
                 volume_node = await OutlineNode.create(
@@ -333,7 +335,7 @@ class OutlineContinueService:
                 node_type="chapter"
             ).order_by("-position").first()
             
-            chap_start_position = (max_chap.position + 1) if max_chap else 0
+            chap_start_position = (max_chap.position + 1) if (max_chap and max_chap.position is not None) else 0
             
             # 创建章节
             chapters = vol_data.get("chapters", [])

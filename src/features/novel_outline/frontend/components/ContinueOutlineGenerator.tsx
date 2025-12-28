@@ -15,7 +15,7 @@ import {
   LinearProgress,
   Box,
   Alert,
-  MenuItem,
+  Slider,
   alpha,
 } from '@mui/material'
 import { 
@@ -34,13 +34,7 @@ interface ContinueOutlineGeneratorProps {
   hasExistingOutline: boolean
 }
 
-// 预设章节数选项
-const CHAPTER_COUNT_PRESETS = [
-  { value: 5, label: '5章(快速续写)' },
-  { value: 10, label: '10章(标准续写)' },
-  { value: 20, label: '20章(长篇续写)' },
-  { value: 0, label: '自定义' },
-]
+
 
 export default function ContinueOutlineGenerator({
   open,
@@ -56,12 +50,8 @@ export default function ContinueOutlineGenerator({
   const [generatedContent, setGeneratedContent] = useState('')
 
   // 表单字段
-  const [chapterCountPreset, setChapterCountPreset] = useState(10)
-  const [customChapterCount, setCustomChapterCount] = useState(10)
+  const [chapterCount, setChapterCount] = useState(10)
   const [additionalContext, setAdditionalContext] = useState('')
-
-  // 计算实际使用的章节数
-  const actualChapterCount = chapterCountPreset === 0 ? customChapterCount : chapterCountPreset
 
   const handleContinue = async () => {
     if (!hasExistingOutline) {
@@ -79,7 +69,7 @@ export default function ContinueOutlineGenerator({
       await outlineAPI.continueOutlineStream(
         projectId,
         {
-          chapter_count: actualChapterCount,
+          chapter_count: chapterCount,
           additional_context: additionalContext.trim() || undefined,
         },
         1,
@@ -122,8 +112,7 @@ export default function ContinueOutlineGenerator({
 
   const handleClose = () => {
     if (!generating) {
-      setChapterCountPreset(10)
-      setCustomChapterCount(10)
+      setChapterCount(10)
       setAdditionalContext('')
       setProgress(0)
       setStatusMessage('')
@@ -170,44 +159,28 @@ export default function ContinueOutlineGenerator({
           </Alert>
 
           {/* 续写章节数 */}
-          <TextField
-            select
-            label="续写章节数"
-            value={chapterCountPreset}
-            onChange={(e) => setChapterCountPreset(Number(e.target.value))}
-            disabled={generating}
-            fullWidth
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-              },
-            }}
-          >
-            {CHAPTER_COUNT_PRESETS.map((preset) => (
-              <MenuItem key={preset.value} value={preset.value}>
-                {preset.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          {/* 自定义章节数 */}
-          {chapterCountPreset === 0 && (
-            <TextField
-              type="number"
-              label="自定义章节数"
-              value={customChapterCount}
-              onChange={(e) => setCustomChapterCount(Math.max(1, Math.min(100, Number(e.target.value))))}
+          <Box>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              续写章节数: {chapterCount} 章
+            </Typography>
+            <Slider
+              value={chapterCount}
+              onChange={(_, value) => setChapterCount(value as number)}
+              valueLabelDisplay="auto"
+              min={1}
+              max={100}
+              step={1}
+              marks={[
+                { value: 1, label: '1' },
+                { value: 25, label: '25' },
+                { value: 50, label: '50' },
+                { value: 75, label: '75' },
+                { value: 100, label: '100' },
+              ]}
               disabled={generating}
-              fullWidth
-              inputProps={{ min: 1, max: 100 }}
-              helperText="范围：1-100章"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                },
-              }}
+              sx={{ mt: 2 }}
             />
-          )}
+          </Box>
 
           {/* 额外指令 */}
           <TextField
@@ -301,7 +274,7 @@ export default function ContinueOutlineGenerator({
         <Button
           onClick={handleContinue}
           variant="contained"
-          disabled={generating || !hasExistingOutline}
+          disabled={generating || !hasExistingOutline || chapterCount <= 0}
           startIcon={<AIIcon />}
           sx={{ borderRadius: 2 }}
         >

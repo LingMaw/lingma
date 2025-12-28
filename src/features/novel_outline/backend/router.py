@@ -1,432 +1,319 @@
-"""大纲管理API路由"""
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
-from typing import Optional
-from tortoise.transactions import in_transaction
+"""
+大纲系统API路由
+"""
 
+from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi.responses import StreamingResponse
+from loguru import logger
+
+from src.backend.core.exceptions import APIError
 from src.features.novel_outline.backend.models import OutlineNode
 from src.features.novel_outline.backend.schemas import (
+    AIOutlineGenerateRequest,
+    OutlineContinueRequest,
     OutlineNodeCreate,
-    OutlineNodeUpdate,
+    OutlineNodeReorder,
     OutlineNodeResponse,
-    OutlineTreeResponse,
-    OutlineNodeWithChildren,
-    PositionUpdate,
-    PositionUpdateResponse,
-    ReorderRequest,
-    ReorderResponse,
-    DeleteResponse,
-    OutlineGenerateRequest,
-    RegenerateChildrenRequest,
+    OutlineNodeUpdate,
+    SectionHintsResponse,
 )
-from src.features.novel_outline.backend.ai import outline_ai_service
-from src.backend.core.exceptions import APIError
-from src.backend.core.dependencies import CurrentUserId
+# 导入同步服务
+from src.features.chapter.backend.services.sync_service import ChapterSyncService
+# 导入AI大纲服务
+from src.features.novel_outline.backend.services.ai_outline_service import (
+    AIOutlineService,
+    OutlineExportService,
+)
+from src.features.novel_outline.backend.services.outline_continue_service import (
+    OutlineContinueService,
+)
 
-router = APIRouter()
+router = APIRouter(prefix="/outline", tags=["大纲系统"])
 
 
-async def build_tree(nodes: list[OutlineNode]) -> list[OutlineNodeWithChildren]:
-    """递归构建大纲树结构
-    
-    Args:
-        nodes: 节点列表
-        
-    Returns:
-        树形结构的节点列表
+@router.get("/projects/{project_id}/nodes", response_model=list[OutlineNodeResponse])
+async def get_outline_nodes(
+    project_id: int = Path(..., description="项目ID"),
+):
     """
-    # 构建节点字典
-    node_dict = {node.id: node for node in nodes}
-    
-    # 构建父子关系
-    tree = []
-    for node in nodes:
-        node_data = OutlineNodeWithChildren.model_validate(node)
-        
-        if node.parent_id is None:
-            # 根节点
-            tree.append(node_data)
-        else:
-            # 子节点,添加到父节点的children
-            parent = node_dict.get(node.parent_id)
-            if parent:
-                # 需要找到tree中对应的父节点
-                parent_in_tree = find_node_in_tree(tree, parent.id)
-                if parent_in_tree:
-                    parent_in_tree.children.append(node_data)
-    
-    return tree
-
-
-def find_node_in_tree(tree: list[OutlineNodeWithChildren], node_id: int) -> Optional[OutlineNodeWithChildren]:
-    """在树中查找指定ID的节点
-    
-    Args:
-        tree: 树形结构列表
-        node_id: 节点ID
-        
-    Returns:
-        找到的节点或None
+    获取项目的所有大纲节点（扁平列表）
+    前端可以根据parent_id和position自行构建树状结构
     """
-    for node in tree:
-        if node.id == node_id:
-            return node
-        if node.children:
-            found = find_node_in_tree(node.children, node_id)
-            if found:
-                return found
-    return None
-
-
-async def count_all_nodes(node_id: int) -> int:
-    """递归统计节点及其所有子孙节点数量
-    
-    Args:
-        node_id: 节点ID
-        
-    Returns:
-        节点总数(包含自身)
-    """
-    count = 1
-    children = await OutlineNode.filter(parent_id=node_id).all()
-    for child in children:
-        count += await count_all_nodes(child.id)
-    return count
-
-
-@router.get("/{project_id}/outline", response_model=OutlineTreeResponse)
-async def get_outline_tree(project_id: int):
-    """获取小说项目的完整大纲树
-    
-    Args:
-        project_id: 小说项目ID
-        
-    Returns:
-        完整的大纲树结构
-    """
-    # 获取该项目的所有大纲节点
-    nodes = await OutlineNode.filter(novel_id=project_id).order_by("position").all()
-    
-    # 构建树形结构
-    root_nodes = await build_tree(nodes)
-    
-    return OutlineTreeResponse(
-        novel_id=project_id,
-        root_nodes=root_nodes,
-        total_nodes=len(nodes)
-    )
-
-
-@router.post("/{project_id}/outline", response_model=OutlineNodeResponse)
-async def create_outline_node(project_id: int, node_data: OutlineNodeCreate):
-    """创建大纲节点
-    
-    Args:
-        project_id: 小说项目ID
-        node_data: 节点数据
-        
-    Returns:
-        创建的节点信息
-        
-    Raises:
-        HTTPException: 父节点不存在、层级超限、类型不匹配等错误
-    """
-    # 验证父节点存在(如果指定了parent_id)
-    if node_data.parent_id is not None:
-        parent = await OutlineNode.filter(id=node_data.parent_id, novel_id=project_id).first()
-        if not parent:
-            raise HTTPException(status_code=404, detail="父节点不存在")
-    
-    # 计算position(如果未指定)
-    if node_data.position is None:
-        siblings = await OutlineNode.filter(
-            novel_id=project_id,
-            parent_id=node_data.parent_id
-        ).all()
-        node_data.position = len(siblings)
-    
-    # 创建节点
-    node = await OutlineNode.create(
-        novel_id=project_id,
-        parent_id=node_data.parent_id,
-        node_type=node_data.node_type,
-        title=node_data.title,
-        description=node_data.description,
-        position=node_data.position,
-        status=node_data.status,
-        metadata=node_data.metadata
-    )
-    
-    # 验证层级关系
     try:
-        await node.validate_hierarchy()
-    except ValueError as e:
-        # 如果验证失败,删除已创建的节点
-        await node.delete()
-        raise HTTPException(status_code=400, detail=str(e))
-    
-    return OutlineNodeResponse.model_validate(node)
-
-
-@router.put("/{project_id}/outline/{node_id}", response_model=OutlineNodeResponse)
-async def update_outline_node(
-    project_id: int,
-    node_id: int,
-    update_data: OutlineNodeUpdate
-):
-    """更新大纲节点
-    
-    Args:
-        project_id: 小说项目ID
-        node_id: 节点ID
-        update_data: 更新数据
-        
-    Returns:
-        更新后的节点信息
-        
-    Raises:
-        HTTPException: 节点不存在
-    """
-    node = await OutlineNode.filter(id=node_id, novel_id=project_id).first()
-    if not node:
-        raise HTTPException(status_code=404, detail="节点不存在")
-    
-    # 更新字段(只更新提供的字段)
-    update_dict = update_data.model_dump(exclude_unset=True)
-    
-    for field, value in update_dict.items():
-        if field == "metadata" and value is not None:
-            # 合并metadata
-            node.metadata = {**node.metadata, **value}
-        else:
-            setattr(node, field, value)
-    
-    await node.save()
-    
-    return OutlineNodeResponse.model_validate(node)
-
-
-@router.delete("/{project_id}/outline/{node_id}", response_model=DeleteResponse)
-async def delete_outline_node(
-    project_id: int,
-    node_id: int,
-    cascade: bool = Query(False, description="是否级联删除子节点")
-):
-    """删除大纲节点
-    
-    Args:
-        project_id: 小说项目ID
-        node_id: 节点ID
-        cascade: 是否级联删除子节点
-        
-    Returns:
-        删除结果
-        
-    Raises:
-        HTTPException: 节点不存在、含子节点未指定级联删除
-    """
-    node = await OutlineNode.filter(id=node_id, novel_id=project_id).first()
-    if not node:
-        raise HTTPException(status_code=404, detail="节点不存在")
-    
-    # 检查是否有子节点
-    children = await node.get_children()
-    if children and not cascade:
-        raise HTTPException(
-            status_code=400,
-            detail=f"节点包含{len(children)}个子节点,请指定cascade=true进行级联删除"
+        nodes = (
+            await OutlineNode.filter(project_id=project_id)
+            .order_by("position")
+            .all()
         )
-    
-    # 统计删除数量
-    deleted_count = 1
-    if cascade:
-        deleted_count = await count_all_nodes(node_id)
-    
-    # 执行删除
-    async with in_transaction():
-        if cascade:
-            # 递归删除所有子孙节点
-            await delete_node_recursive(node_id)
-        else:
-            await node.delete()
-        
-        # 调整同级节点的position
-        siblings = await OutlineNode.filter(
-            novel_id=project_id,
-            parent_id=node.parent_id,
-            position__gt=node.position
-        ).all()
-        
-        for sibling in siblings:
-            sibling.position -= 1
-            await sibling.save()
-    
-    return DeleteResponse(
-        message="节点删除成功",
-        deleted_count=deleted_count
-    )
+        return nodes
+    except Exception as e:
+        logger.error(f"获取大纲节点失败: {e}")
+        raise APIError(code="FETCH_FAILED", message="获取大纲节点失败", status_code=500)
 
 
-async def delete_node_recursive(node_id: int):
-    """递归删除节点及其所有子孙节点
-    
-    Args:
-        node_id: 节点ID
-    """
-    children = await OutlineNode.filter(parent_id=node_id).all()
-    for child in children:
-        await delete_node_recursive(child.id)
-    
-    await OutlineNode.filter(id=node_id).delete()
-
-
-@router.patch("/{project_id}/outline/{node_id}/position", response_model=PositionUpdateResponse)
-async def update_node_position(
-    project_id: int,
-    node_id: int,
-    position_data: PositionUpdate
+@router.post("/projects/{project_id}/nodes", response_model=OutlineNodeResponse)
+async def create_outline_node(
+    project_id: int = Path(..., description="项目ID"),
+    data: OutlineNodeCreate = ...,
 ):
-    """调整节点位置
-    
-    Args:
-        project_id: 小说项目ID
-        node_id: 节点ID
-        position_data: 位置更新数据
-        
-    Returns:
-        更新后的节点及受影响的兄弟节点
-        
-    Raises:
-        HTTPException: 节点不存在、循环引用、层级超限
     """
-    node = await OutlineNode.filter(id=node_id, novel_id=project_id).first()
-    if not node:
-        raise HTTPException(status_code=404, detail="节点不存在")
-    
-    # 检查循环引用
-    if position_data.parent_id is not None:
-        if await node.has_circular_reference(position_data.parent_id):
-            raise HTTPException(status_code=400, detail="不能将节点移动到自己的子节点下")
-        
-        # 验证父节点存在
-        parent = await OutlineNode.filter(id=position_data.parent_id, novel_id=project_id).first()
-        if not parent:
-            raise HTTPException(status_code=404, detail="目标父节点不存在")
-    
-    old_parent_id = node.parent_id
-    old_position = node.position
-    
-    async with in_transaction():
-        # 如果改变了父节点
-        if position_data.parent_id != old_parent_id:
-            # 调整原父节点下其他节点的position
-            old_siblings = await OutlineNode.filter(
-                novel_id=project_id,
-                parent_id=old_parent_id,
-                position__gt=old_position
-            ).all()
-            for sibling in old_siblings:
-                sibling.position -= 1
-                await sibling.save()
-        
-        # 更新节点的parent_id和position
-        node.parent_id = position_data.parent_id
-        node.position = position_data.position
+    创建大纲节点
+    注意：如果是chapter类型，会自动创建对应的Chapter记录（通过同步服务）
+    """
+    try:
+        # 验证层级规则
+        if data.parent_id:
+            parent = await OutlineNode.get_or_none(id=data.parent_id)
+            if not parent:
+                raise APIError(
+                    code="PARENT_NOT_FOUND",
+                    message="父节点不存在",
+                    status_code=404,
+                )
+
+            # 层级验证
+            if data.node_type == "volume":
+                raise APIError(
+                    code="INVALID_HIERARCHY",
+                    message="卷(volume)只能作为根节点",
+                    status_code=400,
+                )
+            elif data.node_type == "chapter" and parent.node_type != "volume":
+                raise APIError(
+                    code="INVALID_HIERARCHY",
+                    message="章(chapter)只能挂在卷(volume)下",
+                    status_code=400,
+                )
+            elif data.node_type == "section" and parent.node_type != "chapter":
+                raise APIError(
+                    code="INVALID_HIERARCHY",
+                    message="小节(section)只能挂在章(chapter)下",
+                    status_code=400,
+                )
+
+        # 计算position：获取同级最大position + 1
+        max_position_node = (
+            await OutlineNode.filter(
+                project_id=project_id, parent_id=data.parent_id
+            )
+            .order_by("-position")
+            .first()
+        )
+        position = (max_position_node.position + 1) if max_position_node else 0
+
+        # 创建节点
+        node = await OutlineNode.create(
+            project_id=project_id,
+            parent_id=data.parent_id,
+            node_type=data.node_type,
+            title=data.title,
+            description=data.description,
+            position=position,
+        )
+
+        # 触发同步：如果是chapter类型，自动创建对应的Chapter记录
+        await ChapterSyncService.sync_on_create(node)
+
+        logger.info(f"创建大纲节点: {node.id} - {node.title}")
+        return node
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"创建大纲节点失败: {e}")
+        raise APIError(code="CREATE_FAILED", message="创建大纲节点失败", status_code=500)
+
+
+@router.put("/nodes/{node_id}", response_model=OutlineNodeResponse)
+async def update_outline_node(
+    node_id: int = Path(..., description="节点ID"),
+    data: OutlineNodeUpdate = ...,
+):
+    """
+    更新大纲节点
+    注意：如果是chapter类型，会自动更新对应的Chapter记录（通过同步服务）
+    """
+    try:
+        node = await OutlineNode.get_or_none(id=node_id)
+        if not node:
+            raise APIError(code="NOT_FOUND", message="节点不存在", status_code=404)
+
+        # 更新字段
+        if data.title is not None:
+            node.title = data.title
+        if data.description is not None:
+            node.description = data.description
+        if data.is_expanded is not None:
+            node.is_expanded = data.is_expanded
+
         await node.save()
         
-        # 验证新的层级关系
-        try:
-            await node.validate_hierarchy()
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+        # 触发同步：如果是chapter类型，更新对应的Chapter标题
+        await ChapterSyncService.sync_on_update(node)
         
-        # 调整新父节点下其他节点的position
-        new_siblings = await OutlineNode.filter(
-            novel_id=project_id,
-            parent_id=position_data.parent_id,
-            position__gte=position_data.position
-        ).exclude(id=node_id).all()
-        
-        affected_siblings = []
-        for sibling in new_siblings:
-            sibling.position += 1
-            await sibling.save()
-            affected_siblings.append({"id": sibling.id, "position": sibling.position})
-    
-    return PositionUpdateResponse(
-        node=OutlineNodeResponse.model_validate(node),
-        affected_siblings=affected_siblings
-    )
+        logger.info(f"更新大纲节点: {node.id}")
+        return node
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"更新大纲节点失败: {e}")
+        raise APIError(code="UPDATE_FAILED", message="更新大纲节点失败", status_code=500)
 
 
-@router.post("/{project_id}/outline/reorder", response_model=ReorderResponse)
-async def reorder_nodes(project_id: int, reorder_data: ReorderRequest):
-    """批量更新节点顺序
-    
-    Args:
-        project_id: 小说项目ID
-        reorder_data: 排序数据
-        
-    Returns:
-        更新后的节点位置信息
-        
-    Raises:
-        HTTPException: 节点不属于同一父节点
-    """
-    # 验证所有节点都属于同一父节点
-    nodes = await OutlineNode.filter(
-        id__in=reorder_data.node_ids,
-        novel_id=project_id
-    ).all()
-    
-    if len(nodes) != len(reorder_data.node_ids):
-        raise HTTPException(status_code=404, detail="部分节点不存在")
-    
-    for node in nodes:
-        if node.parent_id != reorder_data.parent_id:
-            raise HTTPException(status_code=400, detail="所有节点必须属于同一父节点")
-    
-    # 批量更新position
-    updated_nodes = []
-    async with in_transaction():
-        for index, node_id in enumerate(reorder_data.node_ids):
-            await OutlineNode.filter(id=node_id).update(position=index)
-            updated_nodes.append({"id": node_id, "position": index})
-    
-    return ReorderResponse(
-        message="顺序更新成功",
-        updated_nodes=updated_nodes
-    )
-
-
-# ============= AI 生成相关端点 =============
-
-@router.post("/{project_id}/outline/generate")
-async def generate_outline(
-    project_id: int,
-    request: OutlineGenerateRequest,
-    current_user_id: CurrentUserId,
+@router.delete("/nodes/{node_id}")
+async def delete_outline_node(
+    node_id: int = Path(..., description="节点ID"),
 ):
-    """AI 生成完整大纲(SSE流式返回)
-    
-    Args:
-        project_id: 小说项目ID
-        request: 生成请求参数
-        current_user_id: 当前用户ID
-        
-    Returns:
-        SSE 流式响应
     """
-    async def generate_stream():
-        async for event in outline_ai_service.generate_outline_stream(
-            user_id=current_user_id,
-            project_id=project_id,
-            params=request,
-        ):
-            yield event
-    
+    删除大纲节点
+    注意：会级联删除所有子节点，对应的Chapter记录的outline_node_id会被设为null
+    """
+    try:
+        node = await OutlineNode.get_or_none(id=node_id)
+        if not node:
+            raise APIError(code="NOT_FOUND", message="节点不存在", status_code=404)
+
+        # 保存节点ID用于同步
+        deleted_node_id = node.id
+        
+        await node.delete()
+        
+        # 触发同步：通知章节系统节点已删除
+        await ChapterSyncService.sync_on_delete(deleted_node_id)
+        
+        logger.info(f"删除大纲节点: {node_id}")
+        return {"message": "删除成功"}
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"删除大纲节点失败: {e}")
+        raise APIError(code="DELETE_FAILED", message="删除大纲节点失败", status_code=500)
+
+
+@router.post("/nodes/{node_id}/reorder", response_model=OutlineNodeResponse)
+async def reorder_outline_node(
+    node_id: int = Path(..., description="节点ID"),
+    data: OutlineNodeReorder = ...,
+):
+    """
+    拖拽排序：调整节点的父节点和位置
+    注意：会触发章节编号重算（如果涉及chapter节点）
+    """
+    try:
+        node = await OutlineNode.get_or_none(id=node_id)
+        if not node:
+            raise APIError(code="NOT_FOUND", message="节点不存在", status_code=404)
+
+        # 验证新父节点
+        if data.new_parent_id:
+            new_parent = await OutlineNode.get_or_none(id=data.new_parent_id)
+            if not new_parent:
+                raise APIError(
+                    code="PARENT_NOT_FOUND",
+                    message="新父节点不存在",
+                    status_code=404,
+                )
+
+            # 层级验证（同创建时的规则）
+            if node.node_type == "volume":
+                raise APIError(
+                    code="INVALID_HIERARCHY",
+                    message="卷(volume)只能作为根节点",
+                    status_code=400,
+                )
+            elif node.node_type == "chapter" and new_parent.node_type != "volume":
+                raise APIError(
+                    code="INVALID_HIERARCHY",
+                    message="章(chapter)只能挂在卷(volume)下",
+                    status_code=400,
+                )
+            elif node.node_type == "section" and new_parent.node_type != "chapter":
+                raise APIError(
+                    code="INVALID_HIERARCHY",
+                    message="小节(section)只能挂在章(chapter)下",
+                    status_code=400,
+                )
+
+        # 更新节点的父节点和位置
+        node.parent_id = data.new_parent_id
+        node.position = data.new_position
+        await node.save()
+
+        # 触发章节编号重算（如果涉及chapter节点）
+        await ChapterSyncService.recalculate_all_numbers(node.project_id)
+        
+        logger.info(f"拖拽排序大纲节点: {node_id}")
+        return node
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"拖拽排序失败: {e}")
+        raise APIError(code="REORDER_FAILED", message="拖拽排序失败", status_code=500)
+
+
+@router.get("/nodes/{chapter_node_id}/section-hints", response_model=SectionHintsResponse)
+async def get_section_hints(
+    chapter_node_id: int = Path(..., description="章节节点ID"),
+):
+    """
+    获取章节下的section节点作为写作提纲
+    用于AI生成章节内容时参考
+    """
+    try:
+        chapter_node = await OutlineNode.get_or_none(id=chapter_node_id)
+        if not chapter_node or chapter_node.node_type != "chapter":
+            raise APIError(
+                code="INVALID_NODE_TYPE",
+                message="节点不是章节类型",
+                status_code=400,
+            )
+
+        sections = (
+            await OutlineNode.filter(
+                parent_id=chapter_node_id, node_type="section"
+            )
+            .order_by("position")
+            .all()
+        )
+
+        return {
+            "sections": [
+                {"title": s.title, "description": s.description} for s in sections
+            ]
+        }
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"获取section提纲失败: {e}")
+        raise APIError(
+            code="FETCH_FAILED", message="获取section提纲失败", status_code=500
+        )
+
+
+@router.post("/projects/{project_id}/generate")
+async def generate_outline_with_ai(
+    project_id: int = Path(..., description="项目ID"),
+    user_id: int = Query(1, description="用户ID"),
+    data: AIOutlineGenerateRequest = ...,
+):
+    """
+    AI生成大纲（SSE流式返回）
+    清空现有大纲并根据项目设定生成新的大纲结构
+    注意：会自动使用项目的description、genre、style字段
+    """
     return StreamingResponse(
-        generate_stream(),
+        AIOutlineService.generate_outline_stream(
+            project_id=project_id,
+            user_id=user_id,
+            key_plots=data.key_plots or [],
+            additional_content=data.additional_content or "",
+            chapter_count_min=data.chapter_count_min,
+            chapter_count_max=data.chapter_count_max,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -435,35 +322,60 @@ async def generate_outline(
     )
 
 
-@router.post("/{project_id}/outline/nodes/{node_id}/regenerate-children")
-async def regenerate_children(
-    project_id: int,
-    node_id: int,
-    request: RegenerateChildrenRequest,
-    current_user_id: CurrentUserId,
+@router.get("/projects/{project_id}/export/markdown")
+async def export_outline_markdown(
+    project_id: int = Path(..., description="项目ID"),
 ):
-    """重新生成节点的子节点(SSE流式返回)
-    
-    Args:
-        project_id: 小说项目ID
-        node_id: 父节点ID
-        request: 重新生成请求参数
-        current_user_id: 当前用户ID
-        
-    Returns:
-        SSE 流式响应
     """
-    async def regenerate_stream():
-        async for event in outline_ai_service.regenerate_children_stream(
-            user_id=current_user_id,
-            project_id=project_id,
-            parent_node_id=node_id,
-            params=request,
-        ):
-            yield event
-    
+    导出大纲为Markdown格式
+    """
+    try:
+        markdown_content = await OutlineExportService.export_to_markdown(project_id)
+        return StreamingResponse(
+            iter([markdown_content]),
+            media_type="text/markdown",
+            headers={
+                "Content-Disposition": f"attachment; filename=outline_{project_id}.md"
+            },
+        )
+    except Exception as e:
+        logger.error(f"导出Markdown失败: {e}")
+        raise APIError(code="EXPORT_FAILED", message="导出失败", status_code=500)
+
+
+@router.get("/projects/{project_id}/export/json")
+async def export_outline_json(
+    project_id: int = Path(..., description="项目ID"),
+):
+    """
+    导出大纲为JSON格式
+    """
+    try:
+        json_data = await OutlineExportService.export_to_json(project_id)
+        return json_data
+    except Exception as e:
+        logger.error(f"导出JSON失败: {e}")
+        raise APIError(code="EXPORT_FAILED", message="导出失败", status_code=500)
+
+
+@router.post("/projects/{project_id}/continue")
+async def continue_outline_with_ai(
+    project_id: int = Path(..., description="项目ID"),
+    user_id: int = Query(1, description="用户ID"),
+    data: OutlineContinueRequest = ...,
+):
+    """
+    AI续写大纲（SSE流式返回）
+    基于已有大纲内容，智能生成后续章节大纲
+    注意：会自动提取现有大纲作为上下文，并为chapter节点创建Chapter记录
+    """
     return StreamingResponse(
-        regenerate_stream(),
+        OutlineContinueService.continue_outline_stream(
+            project_id=project_id,
+            user_id=user_id,
+            chapter_count=data.chapter_count,
+            additional_context=data.additional_context or "",
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
