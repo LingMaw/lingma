@@ -5,6 +5,7 @@
 
 from fastapi import APIRouter, Request
 
+from src.backend.core.cache import config_cache_manager
 from src.backend.core.dependencies import CurrentUserId
 from src.backend.core.exceptions import AuthenticationError, ResourceAlreadyExistsError
 from src.backend.core.logger import logger
@@ -253,6 +254,9 @@ async def update_user_setting(key: str, request: Request, user_id: CurrentUserId
         key=key,
     )
     
+    # 清除缓存，确保下次获取最新配置
+    await config_cache_manager.invalidate_user_config(user_id)
+    
     logger.info(f"用户设置已更新: {key} = {value} (用户ID: {user_id})")
     return message_response(f"设置 {key} 已更新")
 
@@ -274,6 +278,9 @@ async def reset_user_settings(user_id: CurrentUserId):
             user_id=user_id,
             key=key,
         )
+    
+    # 清除缓存
+    await config_cache_manager.invalidate_user_config(user_id)
     
     logger.info(f"用户设置已重置 (用户ID: {user_id})")
     return DEFAULT_USER_SETTINGS

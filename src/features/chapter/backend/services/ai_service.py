@@ -146,6 +146,8 @@ class ChapterAIService:
                 system_prompt=system_prompt,
                 user_prompt=full_requirement,
                 temperature=0.8,
+                project_id=chapter.project_id,
+                endpoint="/chapter/generate",
             ):
                 yield chunk
 
@@ -254,6 +256,8 @@ class ChapterAIService:
                 system_prompt=system_prompt,
                 user_prompt=full_requirement,
                 temperature=0.8,
+                project_id=chapter.project_id,
+                endpoint="/chapter/continue",
             ):
                 yield chunk
 
@@ -308,6 +312,8 @@ class ChapterAIService:
                 system_prompt=system_prompt,
                 user_prompt=prompt,
                 temperature=0.7,
+                project_id=chapter.project_id,
+                endpoint="/chapter/optimize",
             ):
                 yield chunk
 

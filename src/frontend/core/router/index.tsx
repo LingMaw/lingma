@@ -18,6 +18,9 @@ import ChapterEditorPage from '@/features/chapter/frontend/pages/ChapterEditorPa
 // 人物设定系统
 import { ProjectCharacterListPage, CharacterDetailPage, AllCharactersPage } from '@/features/character/frontend/pages'
 
+// Token统计系统
+import { TokenStatisticsPage } from '@/features/token_statistics/frontend'
+
 import ProtectedRoute from './ProtectedRoute'
 
 const router = createHashRouter([
@@ -33,6 +36,7 @@ const router = createHashRouter([
       { path: '/', element: <Navigate to="/dashboard" replace /> },
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/profile', element: <ProfilePage /> },
+      { path: '/token-statistics', element: <TokenStatisticsPage /> },
       { path: '/novel_generator', element: <NovelGeneratorPage /> },
       { path: '/novel_project', element: <NovelProjectListPage /> },
       { path: '/novel_projects/create', element: <NovelProjectDetailPage /> },

@@ -11,6 +11,7 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Person as PersonIcon,
+  Token as TokenIcon,
 } from '@mui/icons-material'
 import {
   AppBar,
@@ -50,6 +51,7 @@ const menuItems = [
   { path: '/novel_generator', text: 'AI小说生成器', icon: <BorderColorIcon /> },
   { path: '/novel_project', text: '小说项目管理', icon: <BorderColorIcon /> },
   { path: '/characters', text: '角色管理', icon: <BorderColorIcon /> },
+  { path: '/token-statistics', text: 'Token统计', icon: <TokenIcon /> },
   { path: '/profile', text: '个人资料', icon: <PersonIcon /> },
 ]
 

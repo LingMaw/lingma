@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from src.backend.config.settings import settings
+from src.backend.services.router import router as statistics_router
 from src.features.chapter.backend.router import router as chapter_router
 from src.features.character.backend.router import router as character_router
 from src.features.dashboard.backend.router import router as dashboard_router
@@ -14,6 +15,7 @@ api_router = APIRouter(prefix="/api")
 
 # 挂载各功能模块路由
 api_router.include_router(auth_router, prefix="/auth", tags=["认证"])
+api_router.include_router(statistics_router, prefix="", tags=["统计"])
 api_router.include_router(dashboard_router, prefix="/dashboard", tags=["仪表盘"])
 api_router.include_router(novel_generator_router, prefix="/novel", tags=["AI小说生成器"])
 api_router.include_router(novel_project_router, prefix="/novel_projects", tags=["小说项目管理"])
