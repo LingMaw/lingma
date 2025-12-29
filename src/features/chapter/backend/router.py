@@ -11,6 +11,7 @@ from loguru import logger
 
 from src.backend.core.dependencies import CurrentUserId
 from src.backend.core.exceptions import APIError
+from src.backend.core.response import MessageResponse, message_response
 from src.features.chapter.backend.models import Chapter
 from src.features.chapter.backend.schemas import (
     ChapterCreate,
@@ -228,7 +229,7 @@ async def update_chapter(
         return chapter
 
 
-@router.delete("/{chapter_id}")
+@router.delete("/{chapter_id}", response_model=MessageResponse)
 async def delete_chapter(
     chapter_id: int = Path(..., description="章节ID"),
 ):
@@ -252,7 +253,7 @@ async def delete_chapter(
         raise APIError(code="DELETE_FAILED", message="删除章节失败", status_code=500) from e
     else:
         logger.info(f"删除章节: {chapter_id}")
-        return {"message": "删除成功"}
+        return message_response("删除成功")
 
 
 @router.post("/{chapter_id}/ai-generate-stream")

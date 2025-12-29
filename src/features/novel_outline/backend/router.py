@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from src.backend.core.exceptions import APIError
+from src.backend.core.response import MessageResponse, message_response
 
 # 导入同步服务
 from src.features.chapter.backend.services.sync_service import ChapterSyncService
@@ -181,7 +182,7 @@ async def update_outline_node(
     return node
 
 
-@router.delete("/nodes/{node_id}")
+@router.delete("/nodes/{node_id}", response_model=MessageResponse)
 async def delete_outline_node(
     node_id: int = Path(..., description="节点ID"),
 ):
@@ -213,7 +214,7 @@ async def delete_outline_node(
     except Exception as e:
         logger.error(f"删除大纲节点失败: {e}")
         raise APIError(code="DELETE_FAILED", message="删除大纲节点失败", status_code=500) from e
-    return {"message": "删除成功"}
+    return message_response("删除成功")
 
 @router.post("/nodes/{node_id}/reorder", response_model=OutlineNodeResponse)
 async def reorder_outline_node(

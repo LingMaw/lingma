@@ -7,6 +7,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 
+from src.backend.core.exceptions import raise_resource_not_found
+from src.backend.core.response import MessageResponse, message_response
 from src.features.character.backend.models import (
     Character,
     CharacterRelation,
@@ -51,22 +53,18 @@ async def create_template(data: CharacterTemplateCreate):
 @router.get("/templates/{template_id}", response_model=CharacterTemplateResponse)
 async def get_template(template_id: int):
     """获取模板详情"""
-    from src.backend.core.exceptions import ResourceNotFoundError
-
     template = await CharacterTemplate.get_or_none(id=template_id)
     if not template:
-        raise ResourceNotFoundError("模板", f"模板ID {template_id} 不存在")
+        raise_resource_not_found("模板", f"模板ID {template_id} 不存在")
     return template
 
 
 @router.put("/templates/{template_id}", response_model=CharacterTemplateResponse)
 async def update_template(template_id: int, data: CharacterTemplateUpdate):
     """更新模板"""
-    from src.backend.core.exceptions import ResourceNotFoundError
-
     template = await CharacterTemplate.get_or_none(id=template_id)
     if not template:
-        raise ResourceNotFoundError("模板", f"模板ID {template_id} 不存在")
+        raise_resource_not_found("模板", f"模板ID {template_id} 不存在")
 
     # 更新非空字段
     update_data = data.model_dump(exclude_unset=True)
@@ -77,11 +75,11 @@ async def update_template(template_id: int, data: CharacterTemplateUpdate):
     return template
 
 
-@router.delete("/templates/{template_id}")
+@router.delete("/templates/{template_id}", response_model=MessageResponse)
 async def delete_template(template_id: int):
     """删除模板"""
     await CharacterService.delete_template(template_id)
-    return {"success": True, "message": "模板删除成功"}
+    return message_response("模板删除成功")
 
 
 # ===== 角色路由 =====
@@ -132,11 +130,9 @@ async def get_character(character_id: int):
 @router.put("/{character_id}", response_model=CharacterResponse)
 async def update_character(character_id: int, data: CharacterUpdate):
     """更新角色"""
-    from src.backend.core.exceptions import ResourceNotFoundError
-
     character = await Character.get_or_none(id=character_id)
     if not character:
-        raise ResourceNotFoundError("角色", f"角色ID {character_id} 不存在")
+        raise_resource_not_found("角色", f"角色ID {character_id} 不存在")
 
     # 更新非空字段
     update_data = data.model_dump(exclude_unset=True)
@@ -147,11 +143,11 @@ async def update_character(character_id: int, data: CharacterUpdate):
     return character
 
 
-@router.delete("/{character_id}")
+@router.delete("/{character_id}", response_model=MessageResponse)
 async def delete_character(character_id: int):
     """删除角色(级联删除所有关系)"""
     await CharacterService.delete_character(character_id)
-    return {"success": True, "message": "角色删除成功"}
+    return message_response("角色删除成功")
 
 
 # ===== 关系路由 =====
@@ -160,12 +156,10 @@ async def delete_character(character_id: int):
 @router.get("/{character_id}/relations", response_model=list[CharacterRelationResponse])
 async def get_character_relations(character_id: int):
     """获取角色的所有关系"""
-    from src.backend.core.exceptions import ResourceNotFoundError
-
     # 验证角色存在
     character = await Character.get_or_none(id=character_id)
     if not character:
-        raise ResourceNotFoundError("角色", f"角色ID {character_id} 不存在")
+        raise_resource_not_found("角色", f"角色ID {character_id} 不存在")
 
     # 获取作为源和目标的所有关系
     relations_as_source = await CharacterRelation.filter(
@@ -201,11 +195,11 @@ async def update_relation(relation_id: int, data: CharacterRelationUpdate):
     )
 
 
-@router.delete("/relations/{relation_id}")
+@router.delete("/relations/{relation_id}", response_model=MessageResponse)
 async def delete_relation(relation_id: int):
     """删除关系(如果是双向关系,同时删除反向关系)"""
     await RelationService.delete_relation_cascade(relation_id)
-    return {"success": True, "message": "关系删除成功"}
+    return message_response("关系删除成功")
 
 
 @router.get("/{character_id}/relation-graph", response_model=RelationGraphData)

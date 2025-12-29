@@ -119,6 +119,18 @@ class BusinessError(APIError):
         )
 
 
+# 外部服务异常
+class ExternalServiceError(APIError):
+    """外部服务错误"""
+
+    def __init__(self, service: str = "外部服务", message: str | None = None):
+        super().__init__(
+            code="EXTERNAL_ERROR",
+            message=message or f"{service}调用失败",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+        )
+
+
 # 全局异常处理器（在 main.py 中注册）
 async def validation_exception_handler(
     _request: Request,
@@ -168,3 +180,24 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
             "details": details,
         },
     )
+
+
+# 便捷的异常抛出函数（避免 TRY301 警告）
+def raise_resource_not_found(resource: str = "资源", message: str | None = None) -> None:
+    """抛出资源未找到异常"""
+    raise ResourceNotFoundError(resource=resource, message=message)  # noqa: TRY301
+
+
+def raise_validation_error(message: str = "数据验证失败", details: dict | None = None) -> None:
+    """抛出数据验证异常"""
+    raise ValidationError(message=message, details=details)  # noqa: TRY301
+
+
+def raise_business_error(code: str, message: str, details: dict | None = None) -> None:
+    """抛出业务逻辑异常"""
+    raise BusinessError(code=code, message=message, details=details)  # noqa: TRY301
+
+
+def raise_external_service_error(service: str = "外部服务", message: str | None = None) -> None:
+    """抛出外部服务异常"""
+    raise ExternalServiceError(service=service, message=message)  # noqa: TRY301

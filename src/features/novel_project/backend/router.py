@@ -11,6 +11,7 @@ from tortoise.exceptions import DoesNotExist
 from src.backend.core.dependencies import CurrentUserId
 from src.backend.core.exceptions import APIError
 from src.backend.core.logger import logger
+from src.backend.core.response import MessageResponse, message_response
 
 from .models import NovelProject
 from .schemas import (
@@ -165,7 +166,7 @@ async def update_novel_project(
         return project
 
 
-@router.delete("/{project_id}", summary="删除小说项目")
+@router.delete("/{project_id}", response_model=MessageResponse, summary="删除小说项目")
 async def delete_novel_project(
     project_id: int,
     user_id: CurrentUserId,
@@ -178,7 +179,7 @@ async def delete_novel_project(
         user_id: 当前用户ID
         
     Returns:
-        dict: 删除结果
+        MessageResponse: 删除结果
     """
     logger.info(f"用户 {user_id} 删除小说项目: {project_id}")
     
@@ -190,7 +191,7 @@ async def delete_novel_project(
         logger.warning(f"小说项目不存在: {project_id}")
         raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404) from e
     else:
-        return {"message": "项目删除成功"}
+        return message_response("项目删除成功")
 
 
 @router.post("/{project_id}/save-content", response_model=NovelProjectResponse, summary="保存小说内容到项目")

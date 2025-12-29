@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request
 from src.backend.core.dependencies import CurrentUserId
 from src.backend.core.exceptions import AuthenticationError, ResourceAlreadyExistsError
 from src.backend.core.logger import logger
+from src.backend.core.response import MessageResponse, message_response
 from src.backend.core.security import (
     create_access_token,
     get_password_hash,
@@ -120,7 +121,7 @@ async def get_user_avatar(user_id: int):
     return {"avatar": user.avatar}
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=MessageResponse)
 async def logout():
     """
     用户登出
@@ -128,7 +129,7 @@ async def logout():
     JWT是无状态的，客户端删除token即可
     如需黑名单机制，可以在这里实现
     """
-    return {"success": True, "message": "登出成功"}
+    return message_response("登出成功")
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
@@ -253,7 +254,7 @@ async def update_user_setting(key: str, request: Request, user_id: CurrentUserId
     )
     
     logger.info(f"用户设置已更新: {key} = {value} (用户ID: {user_id})")
-    return {"success": True, "message": f"设置 {key} 已更新"}
+    return message_response(f"设置 {key} 已更新")
 
 
 @router.post("/settings/reset", response_model=dict[str, str])
@@ -316,7 +317,7 @@ async def update_user_profile(data: dict, user_id: CurrentUserId):
     )
 
 
-@router.put("/password")
+@router.put("/password", response_model=MessageResponse)
 async def update_user_password(data: dict, user_id: CurrentUserId):
     """
     更新当前用户密码
@@ -349,4 +350,4 @@ async def update_user_password(data: dict, user_id: CurrentUserId):
     await user.save()
     
     logger.info(f"用户密码已更新: {user.username} (ID: {user.id})")
-    return {"success": True, "message": "密码更新成功"}
+    return message_response("密码更新成功")
