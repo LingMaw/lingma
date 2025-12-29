@@ -17,6 +17,11 @@ import {
   Typography,
   alpha,
   useTheme,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  Alert,
 } from '@mui/material'
 import Grid2 from '@mui/material/Grid2'
 import {
@@ -26,6 +31,9 @@ import {
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import type { CharacterTemplate } from '@/features/character/frontend/types'
+import type { components } from '@/frontend/core/types/generated'
+
+type NovelProjectResponse = components['schemas']['NovelProjectResponse']
 
 interface CreateCharacterDialogProps {
   open: boolean
@@ -38,6 +46,10 @@ interface CreateCharacterDialogProps {
   creating: boolean
   onCreateBlank: () => void
   onCreateFromTemplate: () => void
+  currentTab: 'public' | 'project'
+  allProjects: NovelProjectResponse[]
+  selectedProjectId: number | null
+  onProjectSelect: (projectId: number | null) => void
 }
 
 export default function CreateCharacterDialog({
@@ -51,6 +63,10 @@ export default function CreateCharacterDialog({
   creating,
   onCreateBlank,
   onCreateFromTemplate,
+  currentTab,
+  allProjects,
+  selectedProjectId,
+  onProjectSelect,
 }: CreateCharacterDialogProps) {
   const theme = useTheme()
 
@@ -101,10 +117,12 @@ export default function CreateCharacterDialog({
           </Box>
           <Box>
             <Typography variant="h6" fontWeight={600}>
-              创建新角色
+              创建{currentTab === 'public' ? '公共' : '项目专属'}角色
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              为你的故事添加独特的角色
+              {currentTab === 'public' 
+                ? '公共角色可在所有项目中使用' 
+                : '项目专属角色仅在指定项目中可用'}
             </Typography>
           </Box>
         </Stack>
@@ -128,6 +146,42 @@ export default function CreateCharacterDialog({
               },
             }}
           />
+
+          {/* 项目选择器 - 仅在项目专属标签页显示 */}
+          {currentTab === 'project' && (
+            allProjects.length > 0 ? (
+              <FormControl fullWidth required>
+                <InputLabel>选择项目</InputLabel>
+                <Select
+                  value={selectedProjectId || ''}
+                  onChange={(e) => onProjectSelect(e.target.value as number)}
+                  label="选择项目"
+                  sx={{
+                    borderRadius: 2.5,
+                  }}
+                >
+                  {allProjects.map((project) => (
+                    <MenuItem key={project.id} value={project.id}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Typography>{project.title}</Typography>
+                        {project.genre && (
+                          <Chip
+                            label={project.genre}
+                            size="small"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                      </Stack>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : (
+              <Alert severity="info" sx={{ borderRadius: 2.5 }}>
+                暂无可用项目，请先创建一个小说项目
+              </Alert>
+            )
+          )}
 
           {templates.length > 0 && (
             <Box>
@@ -240,7 +294,11 @@ export default function CreateCharacterDialog({
           whileTap={{ scale: 0.98 }}
           onClick={handleCreate}
           variant="contained"
-          disabled={!newCharacterName.trim() || creating}
+          disabled={
+            !newCharacterName.trim() ||
+            creating ||
+            (currentTab === 'project' && (!selectedProjectId || allProjects.length === 0))
+          }
           startIcon={creating ? undefined : <AddIcon />}
           sx={{
             borderRadius: 2.5,

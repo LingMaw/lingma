@@ -12,11 +12,14 @@ import {
   Typography,
   alpha,
   useTheme,
+  IconButton,
 } from '@mui/material'
 import {
-  Person as PersonIcon,
+  Public as PublicIcon,
+  FolderSpecial as FolderSpecialIcon,
   WorkOutline as WorkIcon,
   CalendarMonth as CalendarIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { itemVariants } from '@/frontend/core/animation'
@@ -30,9 +33,10 @@ interface AllCharactersCardProps {
   character: Character
   project?: NovelProjectResponse
   onClick: () => void
+  onDelete?: () => void
 }
 
-export default function AllCharactersCard({ character, project, onClick }: AllCharactersCardProps) {
+export default function AllCharactersCard({ character, project, onClick, onDelete }: AllCharactersCardProps) {
   const theme = useTheme()
   const hasBasicInfo =
     character.basic_info?.gender ||
@@ -86,23 +90,44 @@ export default function AllCharactersCard({ character, project, onClick }: AllCh
         {/* 头部 */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
           <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
-            <Typography
-              variant="h6"
-              fontWeight={600}
-              noWrap
-              sx={{
-                lineHeight: 1.3,
-                mb: 0.5,
-              }}
-            >
-              {character.name}
-            </Typography>
-            {/* 显示项目名称 */}
-            {project && (
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography
+                variant="h6"
+                fontWeight={600}
+                noWrap
+                sx={{
+                  lineHeight: 1.3,
+                  flex: 1,
+                }}
+              >
+                {character.name}
+              </Typography>
+              {onDelete && (
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete()
+                  }}
+                  sx={{
+                    opacity: 0.6,
+                    '&:hover': {
+                      opacity: 1,
+                      backgroundColor: alpha(theme.palette.error.main, 0.1),
+                      color: 'error.main',
+                    },
+                  }}
+                >
+                  <DeleteIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              )}
+            </Stack>
+            {/* 显示所属信息：公共角色或项目名称 */}
+            {project ? (
               <Chip
                 label={project.title}
                 size="small"
-                icon={<PersonIcon sx={{ fontSize: 14 }} />}
+                icon={<FolderSpecialIcon sx={{ fontSize: 14 }} />}
                 sx={{
                   mt: 0.5,
                   borderRadius: 2,
@@ -115,6 +140,26 @@ export default function AllCharactersCard({ character, project, onClick }: AllCh
                   '& .MuiChip-icon': {
                     fontSize: 14,
                     color: 'secondary.main',
+                  },
+                }}
+              />
+            ) : (
+              <Chip
+                label="公共角色"
+                size="small"
+                icon={<PublicIcon sx={{ fontSize: 14 }} />}
+                sx={{
+                  mt: 0.5,
+                  borderRadius: 2,
+                  fontWeight: 500,
+                  fontSize: '0.65rem',
+                  height: 20,
+                  backgroundColor: alpha(theme.palette.success.main, 0.1),
+                  color: 'success.main',
+                  border: 'none',
+                  '& .MuiChip-icon': {
+                    fontSize: 14,
+                    color: 'success.main',
                   },
                 }}
               />

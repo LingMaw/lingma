@@ -19,6 +19,11 @@ import {
   Skeleton,
   Tabs,
   Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material'
 import Grid2 from '@mui/material/Grid2'
 import {
@@ -47,26 +52,29 @@ export default function AllCharactersPage() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [templates, setTemplates] = useState<CharacterTemplate[]>([])
   const [projects, setProjects] = useState<Map<number, NovelProjectResponse>>(new Map())
+  const [allProjects, setAllProjects] = useState<NovelProjectResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
-  const [currentTab, setCurrentTab] = useState<'public' | 'project'>(0 as any)
-
-  // 初始化标签页
-  useEffect(() => {
-    setCurrentTab('public')
-  }, [])
+  const [currentTab, setCurrentTab] = useState<'public' | 'project'>('public')
 
   // 创建角色对话框状态
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<CharacterTemplate | null>(null)
   const [newCharacterName, setNewCharacterName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
+
+  // 删除确认对话框状态
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [characterToDelete, setCharacterToDelete] = useState<Character | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     loadData()
     loadTemplates()
+    loadAllProjects()
   }, [])
 
   const loadData = async () => {
@@ -108,17 +116,36 @@ export default function AllCharactersPage() {
     }
   }
 
+  // 加载所有项目（用于创建项目专属角色时选择）
+  const loadAllProjects = async () => {
+    try {
+      const response = await novelProjectAPI.getProjects()
+      setAllProjects(response.items || [])
+    } catch (err) {
+      console.error('加载项目列表失败:', err)
+    }
+  }
+
   // 创建空白角色
   const handleCreateBlank = async () => {
     if (!newCharacterName.trim()) return
+
+    // 如果在项目专属标签页且未选择项目，提示错误
+    if (currentTab === 'project' && !selectedProjectId) {
+      setError('请选择一个项目')
+      return
+    }
 
     try {
       setCreating(true)
       const newChar = await characterAPI.create({
         name: newCharacterName,
+        // 在公共角色标签页创建公共角色，在项目专属标签页创建项目角色
+        project_id: currentTab === 'public' ? undefined : selectedProjectId || undefined,
       })
       setCreateDialogOpen(false)
       setNewCharacterName('')
+      setSelectedProjectId(null)
       loadData()
       navigate(`/characters/${newChar.id}`)
     } catch (err) {
@@ -133,15 +160,24 @@ export default function AllCharactersPage() {
   const handleCreateFromTemplate = async () => {
     if (!selectedTemplate || !newCharacterName.trim()) return
 
+    // 如果在项目专属标签页且未选择项目，提示错误
+    if (currentTab === 'project' && !selectedProjectId) {
+      setError('请选择一个项目')
+      return
+    }
+
     try {
       setCreating(true)
       const newChar = await characterAPI.create({
         name: newCharacterName,
         template_id: selectedTemplate.id,
+        // 在公共角色标签页创建公共角色，在项目专属标签页创建项目角色
+        project_id: currentTab === 'public' ? undefined : selectedProjectId || undefined,
       })
       setCreateDialogOpen(false)
       setNewCharacterName('')
       setSelectedTemplate(null)
+      setSelectedProjectId(null)
       loadData()
       navigate(`/characters/${newChar.id}`)
     } catch (err) {
@@ -156,6 +192,7 @@ export default function AllCharactersPage() {
     setCreateDialogOpen(false)
     setNewCharacterName('')
     setSelectedTemplate(null)
+    setSelectedProjectId(null)
   }
 
   // 获取所有分类
@@ -207,6 +244,32 @@ export default function AllCharactersPage() {
 
   const handleCharacterClick = (characterId: number) => {
     navigate(`/characters/${characterId}`)
+  }
+
+  // 打开删除确认对话框
+  const handleDeleteClick = (characterId: number) => {
+    const char = characters.find((c) => c.id === characterId)
+    if (char) {
+      setCharacterToDelete(char)
+      setDeleteDialogOpen(true)
+    }
+  }
+
+  // 确认删除
+  const handleConfirmDelete = async () => {
+    if (!characterToDelete) return
+    try {
+      setDeleting(true)
+      await characterAPI.delete(characterToDelete.id)
+      setDeleteDialogOpen(false)
+      setCharacterToDelete(null)
+      loadData()
+    } catch (err) {
+      setError('删除角色失败')
+      console.error(err)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -450,6 +513,7 @@ export default function AllCharactersPage() {
           searchQuery={searchQuery}
           categoryFilter={categoryFilter}
           onCharacterClick={handleCharacterClick}
+          onCharacterDelete={handleDeleteClick}
           onCreateClick={() => setCreateDialogOpen(true)}
         />
       ) : (
@@ -461,6 +525,7 @@ export default function AllCharactersPage() {
           searchQuery={searchQuery}
           categoryFilter={categoryFilter}
           onCharacterClick={handleCharacterClick}
+          onCharacterDelete={handleDeleteClick}
         />
       )}
 
@@ -476,7 +541,44 @@ export default function AllCharactersPage() {
         creating={creating}
         onCreateBlank={handleCreateBlank}
         onCreateFromTemplate={handleCreateFromTemplate}
+        currentTab={currentTab}
+        allProjects={allProjects}
+        selectedProjectId={selectedProjectId}
+        onProjectSelect={setSelectedProjectId}
       />
+
+      {/* 删除确认对话框 */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            backdropFilter: 'blur(20px)',
+          },
+        }}
+      >
+        <DialogTitle>确认删除</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            确定要删除角色「{characterToDelete?.name}」吗？此操作不可撤销。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+            取消
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            color="error"
+            variant="contained"
+            disabled={deleting}
+            sx={{ borderRadius: 2 }}
+          >
+            {deleting ? '删除中' : '删除'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   )
 }

@@ -30,6 +30,7 @@ interface PublicCharacterListProps {
   searchQuery: string
   categoryFilter: string | null
   onCharacterClick: (characterId: number) => void
+  onCharacterDelete: (characterId: number) => void
   onCreateClick: () => void
 }
 
@@ -39,6 +40,7 @@ export default function PublicCharacterList({
   searchQuery,
   categoryFilter,
   onCharacterClick,
+  onCharacterDelete,
   onCreateClick,
 }: PublicCharacterListProps) {
   const theme = useTheme()
@@ -107,6 +109,7 @@ export default function PublicCharacterList({
             character={character}
             project={character.project_id ? projects.get(character.project_id) : undefined}
             onClick={() => onCharacterClick(character.id)}
+            onDelete={() => onCharacterDelete(character.id)}
           />
         </Grid2>
       ))}

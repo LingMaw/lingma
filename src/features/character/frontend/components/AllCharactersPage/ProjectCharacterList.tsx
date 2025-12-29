@@ -29,6 +29,7 @@ interface ProjectCharacterListProps {
   searchQuery: string
   categoryFilter: string | null
   onCharacterClick: (characterId: number) => void
+  onCharacterDelete: (characterId: number) => void
 }
 
 export default function ProjectCharacterList({
@@ -38,6 +39,7 @@ export default function ProjectCharacterList({
   searchQuery,
   categoryFilter,
   onCharacterClick,
+  onCharacterDelete,
 }: ProjectCharacterListProps) {
   const theme = useTheme()
 
@@ -155,6 +157,7 @@ export default function ProjectCharacterList({
                       character={character}
                       project={project}
                       onClick={() => onCharacterClick(character.id)}
+                      onDelete={() => onCharacterDelete(character.id)}
                     />
                   </Grid2>
                 ))}

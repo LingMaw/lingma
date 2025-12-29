@@ -3,8 +3,8 @@
  * 展示和编辑角色完整信息
  */
 
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useEffect, useState, useMemo } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Box,
   Container,
@@ -16,8 +16,13 @@ import {
   Tabs,
   Tab,
   alpha,
+  Chip,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import {
+  ArrowBack as ArrowBackIcon,
+  Public as PublicIcon,
+  FolderSpecial as FolderSpecialIcon,
+} from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { pageVariants } from '@/frontend/core/animation'
 import {
@@ -29,12 +34,23 @@ import {
   RelationsEditor,
 } from '@/features/character/frontend/components'
 import { characterAPI } from '@/features/character/frontend/api'
+import { novelProjectAPI } from '@/features/novel_project/frontend/api'
 import type { Character, CharacterFormData } from '@/features/character/frontend/types'
+import type { components } from '@/frontend/core/types/generated'
+
+type NovelProjectResponse = components['schemas']['NovelProjectResponse']
 
 export default function CharacterDetailPage() {
   const { characterId } = useParams<{ characterId: string }>()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const isNew = characterId === 'new'
+  
+  // 从 URL 获取 projectId 参数（创建时使用）
+  const urlProjectId = useMemo(() => {
+    const id = searchParams.get('projectId')
+    return id ? Number(id) : null
+  }, [searchParams])
 
   const [character, setCharacter] = useState<Character | null>(null)
   const [formData, setFormData] = useState<CharacterFormData>(getDefaultFormData())
@@ -42,12 +58,26 @@ export default function CharacterDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState(0)
+  const [project, setProject] = useState<NovelProjectResponse | null>(null)
 
   useEffect(() => {
     if (!isNew && characterId) {
       loadCharacter()
     }
-  }, [characterId, isNew])
+    // 创建新角色时，如果 URL 带 projectId，加载项目信息
+    if (isNew && urlProjectId) {
+      loadProjectInfo(urlProjectId)
+    }
+  }, [characterId, isNew, urlProjectId])
+
+  const loadProjectInfo = async (projectId: number) => {
+    try {
+      const projectData = await novelProjectAPI.getProject(projectId)
+      setProject(projectData)
+    } catch (err) {
+      console.error('加载项目信息失败:', err)
+    }
+  }
 
   const loadCharacter = async () => {
     try {
@@ -55,6 +85,17 @@ export default function CharacterDetailPage() {
       const data = await characterAPI.get(Number(characterId))
       setCharacter(data)
       setFormData(getDefaultFormData(data))
+      // 加载关联项目信息
+      if (data.project_id) {
+        try {
+          const projectData = await novelProjectAPI.getProject(data.project_id)
+          setProject(projectData)
+        } catch (err) {
+          console.error('加载项目信息失败:', err)
+        }
+      } else {
+        setProject(null)
+      }
     } catch (err) {
       setError('加载角色失败')
       console.error(err)
@@ -66,13 +107,10 @@ export default function CharacterDetailPage() {
   const handleSave = async (data: CharacterFormData) => {
     try {
       if (isNew) {
-        // 创建新角色
-        const urlParams = new URLSearchParams(window.location.search)
-        const projectId = urlParams.get('projectId')
-        
+        // 创建新角色 - 使用 URL 中的 projectId
         await characterAPI.create({
           ...data,
-          project_id: projectId ? Number(projectId) : undefined,
+          project_id: urlProjectId || undefined,
         })
         setSuccess('角色创建成功')
         setTimeout(() => {
@@ -108,6 +146,40 @@ export default function CharacterDetailPage() {
           <Typography variant="h4" fontWeight={600}>
             {isNew ? '创建角色' : character?.name || '角色详情'}
           </Typography>
+          {/* 显示角色归属：公共角色或项目专属 */}
+          {((!isNew && character) || (isNew && urlProjectId)) && (
+            (character?.project_id || urlProjectId) && project ? (
+              <Chip
+                label={project.title}
+                size="small"
+                icon={<FolderSpecialIcon sx={{ fontSize: 16 }} />}
+                sx={{
+                  borderRadius: 2,
+                  fontWeight: 500,
+                  backgroundColor: (theme) => alpha(theme.palette.secondary.main, 0.1),
+                  color: 'secondary.main',
+                  '& .MuiChip-icon': {
+                    color: 'secondary.main',
+                  },
+                }}
+              />
+            ) : !isNew ? (
+              <Chip
+                label="公共角色"
+                size="small"
+                icon={<PublicIcon sx={{ fontSize: 16 }} />}
+                sx={{
+                  borderRadius: 2,
+                  fontWeight: 500,
+                  backgroundColor: (theme) => alpha(theme.palette.success.main, 0.1),
+                  color: 'success.main',
+                  '& .MuiChip-icon': {
+                    color: 'success.main',
+                  },
+                }}
+              />
+            ) : null
+          )}
         </Stack>
       </Stack>
 
