@@ -83,8 +83,10 @@ export const characterAPI = {
   /**
    * 获取所有角色及关系网络数据
    */
-  async getAllWithRelations() {
-    const { data } = await httpClient.get<RelationGraphData>('/characters/all/with-relations')
+  async getAllWithRelations(projectId?: number) {
+    const { data } = await httpClient.get<RelationGraphData>('/characters/all/with-relations', {
+      params: { project_id: projectId },
+    })
     return data
   },
 

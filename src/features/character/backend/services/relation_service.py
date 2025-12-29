@@ -349,3 +349,48 @@ class RelationService:
         ]
 
         return RelationGraphData(nodes=nodes, links=links)
+
+    @staticmethod
+    async def get_project_characters_graph(project_id: int) -> RelationGraphData:
+        """
+        获取指定项目的所有角色及其关系的图数据
+
+        Args:
+            project_id: 项目ID
+
+        Returns:
+            关系图数据(节点+边)
+        """
+        # 获取项目的所有角色
+        project_characters = await Character.filter(project_id=project_id).all()
+        character_ids = {char.id for char in project_characters}
+
+        # 构建节点列表
+        nodes = [
+            RelationGraphNode(
+                id=char.id,
+                name=char.name,
+                category=char.basic_info.get("category") if char.basic_info else None,
+            )
+            for char in project_characters
+        ]
+
+        # 获取这些角色之间的关系
+        project_relations = await CharacterRelation.filter(
+            source_character_id__in=list(character_ids),
+            target_character_id__in=list(character_ids),
+        ).all()
+
+        # 构建边列表
+        links = [
+            RelationGraphLink(
+                source=rel.source_character_id,
+                target=rel.target_character_id,
+                relation_type=rel.relation_type,
+                strength=rel.strength,
+                description=rel.description,
+            )
+            for rel in project_relations
+        ]
+
+        return RelationGraphData(nodes=nodes, links=links)

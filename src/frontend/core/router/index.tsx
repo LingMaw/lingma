@@ -16,7 +16,7 @@ import ChapterListPage from '@/features/chapter/frontend/pages/ChapterListPage'
 import ChapterEditorPage from '@/features/chapter/frontend/pages/ChapterEditorPage'
 
 // 人物设定系统
-import { ProjectCharacterListPage, CharacterDetailPage, AllCharactersPage } from '@/features/character/frontend/pages'
+import { ProjectCharacterListPage, CharacterDetailPage, AllCharactersPage, CharacterGraphPage } from '@/features/character/frontend/pages'
 
 // Token统计系统
 import { TokenStatisticsPage } from '@/features/token_statistics/frontend'
@@ -49,7 +49,9 @@ const router = createHashRouter([
       { path: '/novel_projects/:projectId/chapters/:chapterId', element: <ChapterEditorPage /> },
       // 人物设定路由
       { path: '/characters', element: <AllCharactersPage /> },
+      { path: '/characters/graph', element: <CharacterGraphPage /> },
       { path: '/novel_projects/:projectId/characters', element: <ProjectCharacterListPage /> },
+      { path: '/novel_projects/:projectId/characters/graph', element: <CharacterGraphPage /> },
       { path: '/characters/:characterId', element: <CharacterDetailPage /> },
     ],
   },

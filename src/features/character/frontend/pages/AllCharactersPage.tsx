@@ -29,6 +29,7 @@ import Grid2 from '@mui/material/Grid2'
 import {
   Person as PersonIcon,
   Add as AddIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material'
 import { motion, AnimatePresence } from 'framer-motion'
 import { pageVariants, scaleVariants } from '@/frontend/core/animation'
@@ -332,27 +333,46 @@ export default function AllCharactersPage() {
               </Box>
             </Stack>
           </Box>
-          <Button
-            component={motion.button}
-            variants={scaleVariants}
-            whileHover="hover"
-            whileTap="tap"
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialogOpen(true)}
-            sx={{
-              px: 3,
-              py: 1.2,
-              borderRadius: 3,
-              fontWeight: 600,
-              boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.3)}`,
-              '&:hover': {
-                boxShadow: `0 12px 32px ${alpha(theme.palette.primary.main, 0.4)}`,
-              },
-            }}
-          >
-            创建角色
-          </Button>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Button
+              component={motion.button}
+              variants={scaleVariants}
+              whileHover="hover"
+              whileTap="tap"
+              variant="outlined"
+              startIcon={<AccountTreeIcon />}
+              onClick={() => navigate('/characters/graph')}
+              sx={{
+                px: 3,
+                py: 1.2,
+                borderRadius: 3,
+                fontWeight: 600,
+              }}
+            >
+              关系图谱
+            </Button>
+            <Button
+              component={motion.button}
+              variants={scaleVariants}
+              whileHover="hover"
+              whileTap="tap"
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+              sx={{
+                px: 3,
+                py: 1.2,
+                borderRadius: 3,
+                fontWeight: 600,
+                boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.3)}`,
+                '&:hover': {
+                  boxShadow: `0 12px 32px ${alpha(theme.palette.primary.main, 0.4)}`,
+                },
+              }}
+            >
+              创建角色
+            </Button>
+          </Stack>
         </Stack>
       </Box>
 

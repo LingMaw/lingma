@@ -99,8 +99,12 @@ async def list_characters(
 
 
 @router.get("/all/with-relations", response_model=RelationGraphData)
-async def get_all_characters_with_relations():
+async def get_all_characters_with_relations(
+    project_id: Optional[int] = Query(None, description="项目ID(不传则获取所有)"),
+):
     """获取所有角色及其关系网络数据"""
+    if project_id:
+        return await RelationService.get_project_characters_graph(project_id)
     return await RelationService.get_all_characters_graph()
 
 
