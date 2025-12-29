@@ -15,7 +15,7 @@ class CharacterService:
 
     @staticmethod
     async def create_from_template(
-        template_id: int, name: str, project_id: Optional[int] = None
+        template_id: int, name: str, project_id: Optional[int] = None,
     ) -> Character:
         """
         从模板创建角色副本
@@ -44,7 +44,7 @@ class CharacterService:
                 raise ResourceNotFoundError("项目", f"项目ID {project_id} 不存在")
 
         # 创建角色副本,复制模板的所有JSON字段
-        character = await Character.create(
+        return await Character.create(
             name=name,
             project_id=project_id,
             template_id=template_id,
@@ -54,7 +54,6 @@ class CharacterService:
             abilities=template.abilities.copy() if template.abilities else {},
         )
 
-        return character
 
     @staticmethod
     async def get_project_characters(
@@ -86,8 +85,7 @@ class CharacterService:
         Returns:
             所有角色列表
         """
-        characters = await Character.all().order_by("-created_at")
-        return characters
+        return await Character.all().order_by("-created_at")
 
     @staticmethod
     async def check_template_usage(template_id: int) -> int:
@@ -100,8 +98,7 @@ class CharacterService:
         Returns:
             使用该模板的角色数量
         """
-        count = await Character.filter(template_id=template_id).count()
-        return count
+        return await Character.filter(template_id=template_id).count()
 
     @staticmethod
     async def delete_template(template_id: int) -> None:

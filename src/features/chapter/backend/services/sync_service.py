@@ -50,13 +50,13 @@ class ChapterSyncService:
             await ChapterSyncService.recalculate_all_numbers(outline_node.project_id)
 
             logger.info(
-                f"同步创建章节: {chapter.id} - {chapter.title} (关联大纲节点 {outline_node.id})"
+                f"同步创建章节: {chapter.id} - {chapter.title} (关联大纲节点 {outline_node.id})",
             )
-            return chapter
 
         except Exception as e:
             logger.error(f"同步创建章节失败: {e}")
             raise
+        return chapter
 
     @staticmethod
     async def sync_on_update(outline_node: OutlineNode) -> None:
@@ -119,8 +119,8 @@ class ChapterSyncService:
                 chapter_nodes,
                 key=lambda node: (
                     node.parent.position if node.parent else 0,
-                    node.position
-                )
+                    node.position,
+                ),
             )
 
             # 按顺序更新关联的章节编号
@@ -151,7 +151,7 @@ class ChapterSyncService:
         try:
             sections = (
                 await OutlineNode.filter(
-                    parent_id=chapter_node_id, node_type="section"
+                    parent_id=chapter_node_id, node_type="section",
                 )
                 .order_by("position")
                 .all()
@@ -160,7 +160,7 @@ class ChapterSyncService:
             return {
                 "sections": [
                     {"title": s.title, "description": s.description} for s in sections
-                ]
+                ],
             }
 
         except Exception as e:

@@ -7,7 +7,11 @@ from typing import Optional
 
 from src.backend.core.exceptions import BusinessError, ResourceNotFoundError
 from src.features.character.backend.models import Character, CharacterRelation
-from src.features.character.backend.schemas import RelationGraphData, RelationGraphLink, RelationGraphNode
+from src.features.character.backend.schemas import (
+    RelationGraphData,
+    RelationGraphLink,
+    RelationGraphNode,
+)
 
 
 class RelationService:
@@ -60,7 +64,7 @@ class RelationService:
 
         # 检查关系是否已存在
         existing_relation = await CharacterRelation.get_or_none(
-            source_character_id=source_id, target_character_id=target_id
+            source_character_id=source_id, target_character_id=target_id,
         )
         if existing_relation:
             raise BusinessError(
@@ -206,7 +210,7 @@ class RelationService:
 
     @staticmethod
     async def get_relation_graph(
-        character_id: int, depth: int = 2
+        character_id: int, depth: int = 2,
     ) -> RelationGraphData:
         """
         获取关系图数据(广度优先遍历)
@@ -244,10 +248,10 @@ class RelationService:
             for char_id in current_level:
                 # 获取该角色的所有关系(作为源或目标)
                 relations_as_source = await CharacterRelation.filter(
-                    source_character_id=char_id
+                    source_character_id=char_id,
                 ).prefetch_related("target_character")
                 relations_as_target = await CharacterRelation.filter(
-                    target_character_id=char_id
+                    target_character_id=char_id,
                 ).prefetch_related("source_character")
 
                 # 处理作为源的关系
@@ -260,7 +264,7 @@ class RelationService:
                             visited_character_ids.add(target_id)
                             next_level.add(target_id)
                             all_characters[target_id] = await Character.get(
-                                id=target_id
+                                id=target_id,
                             )
 
                 # 处理作为目标的关系
@@ -273,7 +277,7 @@ class RelationService:
                             visited_character_ids.add(source_id)
                             next_level.add(source_id)
                             all_characters[source_id] = await Character.get(
-                                id=source_id
+                                id=source_id,
                             )
 
             current_level = next_level
@@ -292,7 +296,7 @@ class RelationService:
 
         # 获取所有涉及的关系并构建边列表
         all_relations = await CharacterRelation.filter(
-            id__in=list(visited_relation_ids)
+            id__in=list(visited_relation_ids),
         ).all()
 
         links = [

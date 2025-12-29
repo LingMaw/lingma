@@ -6,8 +6,8 @@ from typing import AsyncGenerator
 
 from loguru import logger
 
-from src.features.novel_project.backend.models import NovelProject
 from src.backend.ai import ai_service
+from src.features.novel_project.backend.models import NovelProject
 
 
 class ProjectAIService:
@@ -38,7 +38,7 @@ class ProjectAIService:
 
             # 构建提示词
             prompt_parts = [
-                f"请根据以下小说设定生成完整的小说正文：",
+                "请根据以下小说设定生成完整的小说正文：",
                 f"小说标题：{novel_title}",
             ]
             

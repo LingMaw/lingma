@@ -6,9 +6,9 @@ from typing import AsyncGenerator
 
 from loguru import logger
 
+from src.backend.ai import ai_service
 from src.features.chapter.backend.models import Chapter
 from src.features.novel_outline.backend.models import OutlineNode
-from src.backend.ai import ai_service
 
 
 class ChapterAIService:
@@ -34,7 +34,7 @@ class ChapterAIService:
         try:
             # 获取小说项目信息
             await chapter.fetch_related("project")
-            novel_title = chapter.project.title if chapter.project else "未命名小说"
+            novel_title = chapter.project.title if chapter.project else "未命名小说"  # noqa: F841
             novel_genre = chapter.project.genre if chapter.project else ""
             novel_style = chapter.project.style if chapter.project else ""
 
@@ -54,7 +54,7 @@ class ChapterAIService:
                 # 获取section提纲
                 sections = (
                     await OutlineNode.filter(
-                        parent_id=chapter.outline_node_id, node_type="section"
+                        parent_id=chapter.outline_node_id, node_type="section",
                     )
                     .order_by("position")
                     .all()
@@ -90,7 +90,7 @@ class ChapterAIService:
                 prompt_parts.append(f"\n额外要求：{requirement}")
 
             prompt_parts.append(
-                "\n请直接开始创作，不需要任何前言和后记，只需要正文内容。使用txt格式，不要包含markdown格式。"
+                "\n请直接开始创作，不需要任何前言和后记，只需要正文内容。使用txt格式，不要包含markdown格式。",
             )
 
             full_requirement = "\n".join(prompt_parts)
@@ -137,7 +137,7 @@ class ChapterAIService:
         try:
             # 获取小说项目信息
             await chapter.fetch_related("project")
-            novel_title = chapter.project.title if chapter.project else "未命名小说"
+            novel_title = chapter.project.title if chapter.project else "未命名小说"  # noqa: F841
             novel_genre = chapter.project.genre if chapter.project else ""
             novel_style = chapter.project.style if chapter.project else ""
 
@@ -157,7 +157,7 @@ class ChapterAIService:
                 prompt_parts.append(f"\n续写要求：{requirement}")
 
             prompt_parts.append(
-                "\n请自然地继续故事，保持风格一致。直接开始续写，不需要任何前言。使用txt格式，不要包含markdown格式。"
+                "\n请自然地继续故事，保持风格一致。直接开始续写，不需要任何前言。使用txt格式，不要包含markdown格式。",
             )
 
             full_requirement = "\n".join(prompt_parts)
@@ -204,7 +204,7 @@ class ChapterAIService:
         try:
             # 获取小说项目信息
             await chapter.fetch_related("project")
-            novel_title = chapter.project.title if chapter.project else "未命名小说"
+            novel_title = chapter.project.title if chapter.project else "未命名小说"  # noqa: F841
             novel_genre = chapter.project.genre if chapter.project else ""
             novel_style = chapter.project.style if chapter.project else ""
 

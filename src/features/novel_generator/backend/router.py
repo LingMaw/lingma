@@ -9,12 +9,11 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
+from src.backend.ai import ai_service
 from src.backend.core.dependencies import CurrentUserId
 from src.backend.core.exceptions import APIError, AuthenticationError
 from src.backend.core.logger import logger
 from src.backend.core.security import decode_access_token
-
-from src.backend.ai import ai_service
 
 # 创建一个简单的路由器
 router = APIRouter(tags=["AI小说生成器"])

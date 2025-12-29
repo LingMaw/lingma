@@ -252,13 +252,13 @@ async def ai_generate_project_stream(
     """
     AI流式生成项目内容
     """
+    project = await NovelProject.get_or_none(id=project_id, user_id=user_id)
+    if not project:
+        raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404)
+
+    requirement = data.get("requirement", "")
+
     try:
-        project = await NovelProject.get_or_none(id=project_id, user_id=user_id)
-        if not project:
-            raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404)
-
-        requirement = data.get("requirement", "")
-
         async def content_stream():
             try:
                 yield "".encode("utf-8")  # 初始心跳包
@@ -289,8 +289,8 @@ async def ai_generate_project_stream(
     except Exception as e:
         logger.error(f"AI生成项目失败: {e}")
         raise APIError(
-            code="AI_GENERATE_FAILED", message="AI生成项目失败", status_code=500
-        )
+            code="AI_GENERATE_FAILED", message="AI生成项目失败", status_code=500,
+        ) from e
 
 
 @router.post("/{project_id}/ai-continue-stream", summary="AI流式续写项目内容")
@@ -302,14 +302,14 @@ async def ai_continue_project_stream(
     """
     AI续写项目内容
     """
+    project = await NovelProject.get_or_none(id=project_id, user_id=user_id)
+    if not project:
+        raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404)
+
+    current_content = data.get("current_content", project.content or "")
+    requirement = data.get("requirement", "")
+
     try:
-        project = await NovelProject.get_or_none(id=project_id, user_id=user_id)
-        if not project:
-            raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404)
-
-        current_content = data.get("current_content", project.content or "")
-        requirement = data.get("requirement", "")
-
         async def content_stream():
             try:
                 yield "".encode("utf-8")
@@ -341,8 +341,8 @@ async def ai_continue_project_stream(
     except Exception as e:
         logger.error(f"AI续写项目失败: {e}")
         raise APIError(
-            code="AI_CONTINUE_FAILED", message="AI续写项目失败", status_code=500
-        )
+            code="AI_CONTINUE_FAILED", message="AI续写项目失败", status_code=500,
+        ) from e
 
 
 @router.post("/{project_id}/ai-optimize-stream", summary="AI流式优化项目内容")
@@ -354,14 +354,14 @@ async def ai_optimize_project_stream(
     """
     AI优化项目内容（语法检查、风格优化等）
     """
+    project = await NovelProject.get_or_none(id=project_id, user_id=user_id)
+    if not project:
+        raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404)
+
+    content = data.get("content", "")
+    optimization_type = data.get("type", "general")  # general, grammar, style
+
     try:
-        project = await NovelProject.get_or_none(id=project_id, user_id=user_id)
-        if not project:
-            raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404)
-
-        content = data.get("content", "")
-        optimization_type = data.get("type", "general")  # general, grammar, style
-
         async def content_stream():
             try:
                 yield "".encode("utf-8")
@@ -393,5 +393,5 @@ async def ai_optimize_project_stream(
     except Exception as e:
         logger.error(f"AI优化项目失败: {e}")
         raise APIError(
-            code="AI_OPTIMIZE_FAILED", message="AI优化项目失败", status_code=500
-        )
+            code="AI_OPTIMIZE_FAILED", message="AI优化项目失败", status_code=500,
+        ) from e

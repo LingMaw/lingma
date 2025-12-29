@@ -16,7 +16,7 @@ class CharacterTemplate(models.Model):
     name = fields.CharField(max_length=200, description="模板名称")
     description = fields.TextField(null=True, blank=True, description="模板描述")
     category = fields.CharField(
-        max_length=50, null=True, blank=True, description="模板分类(主角/配角/反派等)"
+        max_length=50, null=True, blank=True, description="模板分类(主角/配角/反派等)",
     )
 
     # JSON字段存储结构化数据
@@ -112,7 +112,7 @@ class CharacterRelation(models.Model):
     description = fields.TextField(null=True, blank=True, description="关系描述")
     timeline = fields.TextField(null=True, blank=True, description="关系时间线")
     is_bidirectional = fields.BooleanField(
-        default=False, description="是否双向关系"
+        default=False, description="是否双向关系",
     )
 
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")

@@ -1,19 +1,12 @@
 from fastapi import APIRouter
 
 from src.backend.config.settings import settings
-from src.features.dashboard.backend.router import router as dashboard_router
-
-# 导入小说生成器路由
-from src.features.novel_generator.backend.router import router as novel_generator_router
-from src.features.novel_project.backend.router import router as novel_project_router
-
-# 导入大纲和章节系统路由
-from src.features.novel_outline.backend.router import router as outline_router
 from src.features.chapter.backend.router import router as chapter_router
-
-# 导入人物设定系统路由
 from src.features.character.backend.router import router as character_router
-
+from src.features.dashboard.backend.router import router as dashboard_router
+from src.features.novel_generator.backend.router import router as novel_generator_router
+from src.features.novel_outline.backend.router import router as outline_router
+from src.features.novel_project.backend.router import router as novel_project_router
 from src.features.user.backend.router import router as auth_router
 
 # 创建主 API 路由

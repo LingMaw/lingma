@@ -53,7 +53,7 @@ class AIOutlineService:
             
             # 构建提示词（包含项目角色信息）
             prompt = await AIOutlineService._build_outline_prompt(
-                project_id, topic, genre, style, key_plots or [], additional_content, chapter_count_min, chapter_count_max
+                project_id, topic, genre, style, key_plots or [], additional_content, chapter_count_min, chapter_count_max,
             )
             
             yield f"data: {json.dumps({'type': 'status', 'message': '开始生成大纲...'}, ensure_ascii=False)}\n\n"
@@ -62,7 +62,7 @@ class AIOutlineService:
             full_response = ""
             logger.info(f"AI大纲提示词: {prompt}")
             async for chunk in ai_service.chat_with_ai_stream(user_id, [
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ]):
                 full_response += chunk
                 # 实时返回生成进度
@@ -81,14 +81,14 @@ class AIOutlineService:
             yield f"data: {json.dumps({'type': 'status', 'message': '创建大纲节点...'}, ensure_ascii=False)}\n\n"
             
             created_count = await AIOutlineService._create_nodes_batch(
-                project_id, outline_data
+                project_id, outline_data,
             )
             
             yield f"data: {json.dumps({'type': 'complete', 'created_count': created_count}, ensure_ascii=False)}\n\n"
             
         except Exception as e:
             logger.error(f"生成大纲失败: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': f'生成失败: {str(e)}'}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': f'生成失败: {e!s}'}, ensure_ascii=False)}\n\n"
 
     @staticmethod
     async def _build_outline_prompt(
@@ -96,7 +96,7 @@ class AIOutlineService:
         topic: str,
         genre: str = "",
         style: str = "",
-        key_plots: list[str] = None,
+        key_plots: list[str] | None = None,
         additional_content: str = "",
         chapter_count_min: int = 10,
         chapter_count_max: int = 50,
@@ -123,26 +123,26 @@ class AIOutlineService:
                 if char.basic_info:
                     basic = char.basic_info
                     info_parts = []
-                    if basic.get('gender'):
+                    if basic.get("gender"):
                         info_parts.append(f"性别：{basic['gender']}")
-                    if basic.get('age'):
+                    if basic.get("age"):
                         info_parts.append(f"年龄：{basic['age']}")
-                    if basic.get('occupation'):
+                    if basic.get("occupation"):
                         info_parts.append(f"职业：{basic['occupation']}")
-                    if basic.get('category'):
+                    if basic.get("category"):
                         info_parts.append(f"角色定位：{basic['category']}")
                     if info_parts:
                         prompt += f"  基本信息：{'，'.join(info_parts)}\n"
                 # 添加性格特征
                 if char.personality:
                     personality = char.personality
-                    traits = personality.get('traits', [])
+                    traits = personality.get("traits", [])
                     if traits:
                         prompt += f"  性格特征：{'、'.join(traits[:5])}\n"
                 # 添加背景简介
                 if char.background:
                     background = char.background
-                    if background.get('summary'):
+                    if background.get("summary"):
                         prompt += f"  背景简介：{background['summary'][:100]}\n"
                 # 添加其他备注
                 if char.notes:
@@ -151,7 +151,7 @@ class AIOutlineService:
         
         # 添加关键剧情
         if key_plots:
-            prompt += f"\n关键剧情点：\n"
+            prompt += "\n关键剧情点：\n"
             for idx, plot in enumerate(key_plots, 1):
                 prompt += f"{idx}. {plot}\n"
         
@@ -240,8 +240,6 @@ class AIOutlineService:
             if "volumes" not in data or not isinstance(data["volumes"], list):
                 raise ValueError("无效的大纲格式：缺少volumes字段")
             
-            return data
-            
         except json.JSONDecodeError as e:
             logger.error(f"解析大纲JSON失败: {e}\n原始响应: {response}")
             # 返回默认结构
@@ -255,13 +253,14 @@ class AIOutlineService:
                                 "title": "第一章",
                                 "description": "初次相遇",
                                 "sections": [
-                                    {"title": "开场", "description": "场景描述"}
-                                ]
-                            }
-                        ]
-                    }
-                ]
+                                    {"title": "开场", "description": "场景描述"},
+                                ],
+                            },
+                        ],
+                    },
+                ],
             }
+        return data
 
     @staticmethod
     async def _create_nodes_batch(project_id: int, outline_data: Dict[str, Any]) -> int:
@@ -339,17 +338,17 @@ class OutlineExportService:
         
         for volume in tree:
             md_lines.append(f"\n## {volume['title']}\n")
-            if volume.get('description'):
+            if volume.get("description"):
                 md_lines.append(f"*{volume['description']}*\n")
             
-            for chapter in volume.get('children', []):
+            for chapter in volume.get("children", []):
                 md_lines.append(f"\n### {chapter['title']}\n")
-                if chapter.get('description'):
+                if chapter.get("description"):
                     md_lines.append(f"{chapter['description']}\n")
                 
-                for section in chapter.get('children', []):
+                for section in chapter.get("children", []):
                     md_lines.append(f"\n#### {section['title']}\n")
-                    if section.get('description'):
+                    if section.get("description"):
                         md_lines.append(f"{section['description']}\n")
         
         return "\n".join(md_lines)
@@ -364,7 +363,7 @@ class OutlineExportService:
         
         return {
             "project_id": project_id,
-            "outline": tree
+            "outline": tree,
         }
 
     @staticmethod
@@ -379,7 +378,7 @@ class OutlineExportService:
                 "title": node.title,
                 "description": node.description,
                 "node_type": node.node_type,
-                "children": []
+                "children": [],
             }
         
         # 构建树
@@ -391,6 +390,6 @@ class OutlineExportService:
             else:
                 parent = node_map.get(node.parent_id)
                 if parent:
-                    parent['children'].append(node_dict)
+                    parent["children"].append(node_dict)
         
         return roots

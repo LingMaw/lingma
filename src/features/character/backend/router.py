@@ -7,7 +7,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 
-from src.features.character.backend.models import Character, CharacterRelation, CharacterTemplate
+from src.features.character.backend.models import (
+    Character,
+    CharacterRelation,
+    CharacterTemplate,
+)
 from src.features.character.backend.schemas import (
     CharacterCreate,
     CharacterRelationCreate,
@@ -41,8 +45,7 @@ async def list_templates(category: Optional[str] = Query(None, description="按�
 @router.post("/templates", response_model=CharacterTemplateResponse)
 async def create_template(data: CharacterTemplateCreate):
     """创建角色模板"""
-    template = await CharacterTemplate.create(**data.model_dump())
-    return template
+    return await CharacterTemplate.create(**data.model_dump())
 
 
 @router.get("/templates/{template_id}", response_model=CharacterTemplateResponse)
@@ -100,8 +103,7 @@ async def list_characters(
 @router.get("/all/with-relations", response_model=RelationGraphData)
 async def get_all_characters_with_relations():
     """获取所有角色及其关系网络数据"""
-    graph_data = await RelationService.get_all_characters_graph()
-    return graph_data
+    return await RelationService.get_all_characters_graph()
 
 
 @router.post("", response_model=CharacterResponse)
@@ -124,8 +126,7 @@ async def create_character(data: CharacterCreate):
 @router.get("/{character_id}", response_model=CharacterResponse)
 async def get_character(character_id: int):
     """获取角色详情"""
-    character = await CharacterService.get_character_with_relations(character_id)
-    return character
+    return await CharacterService.get_character_with_relations(character_id)
 
 
 @router.put("/{character_id}", response_model=CharacterResponse)
@@ -168,10 +169,10 @@ async def get_character_relations(character_id: int):
 
     # 获取作为源和目标的所有关系
     relations_as_source = await CharacterRelation.filter(
-        source_character_id=character_id
+        source_character_id=character_id,
     ).all()
     relations_as_target = await CharacterRelation.filter(
-        target_character_id=character_id
+        target_character_id=character_id,
     ).all()
 
     return relations_as_source + relations_as_target
@@ -180,7 +181,7 @@ async def get_character_relations(character_id: int):
 @router.post("/{character_id}/relations", response_model=CharacterRelationResponse)
 async def create_relation(character_id: int, data: CharacterRelationCreate):
     """创建角色关系"""
-    relation = await RelationService.create_relation(
+    return await RelationService.create_relation(
         source_id=character_id,
         target_id=data.target_character_id,
         relation_type=data.relation_type,
@@ -189,17 +190,15 @@ async def create_relation(character_id: int, data: CharacterRelationCreate):
         timeline=data.timeline,
         is_bidirectional=data.is_bidirectional,
     )
-    return relation
 
 
 @router.put("/relations/{relation_id}", response_model=CharacterRelationResponse)
 async def update_relation(relation_id: int, data: CharacterRelationUpdate):
     """更新关系"""
     update_data = data.model_dump(exclude_unset=True)
-    relation = await RelationService.update_bidirectional_relation(
-        relation_id=relation_id, **update_data
+    return await RelationService.update_bidirectional_relation(
+        relation_id=relation_id, **update_data,
     )
-    return relation
 
 
 @router.delete("/relations/{relation_id}")
@@ -211,8 +210,7 @@ async def delete_relation(relation_id: int):
 
 @router.get("/{character_id}/relation-graph", response_model=RelationGraphData)
 async def get_relation_graph(
-    character_id: int, depth: int = Query(2, ge=1, le=3, description="关系深度(1-3)")
+    character_id: int, depth: int = Query(2, ge=1, le=3, description="关系深度(1-3)"),
 ):
     """获取关系图数据"""
-    graph_data = await RelationService.get_relation_graph(character_id, depth)
-    return graph_data
+    return await RelationService.get_relation_graph(character_id, depth)

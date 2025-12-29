@@ -19,8 +19,8 @@ from src.features.chapter.backend.schemas import (
     ChapterUpdate,
     ChapterWithHints,
 )
-from src.features.novel_outline.backend.models import OutlineNode
 from src.features.chapter.backend.services.ai_service import chapter_ai_service
+from src.features.novel_outline.backend.models import OutlineNode
 
 router = APIRouter(prefix="/chapters", tags=["章节系统"])
 
@@ -38,10 +38,10 @@ async def get_chapters(
             .order_by("chapter_number")
             .all()
         )
-        return chapters
     except Exception as e:
         logger.error(f"获取章节列表失败: {e}")
-        raise APIError(code="FETCH_FAILED", message="获取章节列表失败", status_code=500)
+        raise APIError(code="FETCH_FAILED", message="获取章节列表失败", status_code=500) from e
+    return chapters
 
 
 @router.post("/projects/{project_id}", response_model=ChapterResponse)
@@ -53,16 +53,19 @@ async def create_chapter(
     创建章节（手动创建，不关联大纲）
     注意：通常应该通过创建大纲节点来自动创建章节
     """
+    def _raise_invalid_node() -> None:
+        raise APIError(
+            code="INVALID_NODE",
+            message="关联的大纲节点不存在或类型不是chapter",
+            status_code=400,
+        )
+
     try:
         # 验证outline_node_id（如果提供）
         if data.outline_node_id:
             node = await OutlineNode.get_or_none(id=data.outline_node_id)
             if not node or node.node_type != "chapter":
-                raise APIError(
-                    code="INVALID_NODE",
-                    message="关联的大纲节点不存在或类型不是chapter",
-                    status_code=400,
-                )
+                _raise_invalid_node()
 
         # 计算chapter_number：获取最大编号 + 1
         max_chapter = (
@@ -84,14 +87,14 @@ async def create_chapter(
             status="draft",
         )
 
-        logger.info(f"创建章节: {chapter.id} - {chapter.title}")
-        return chapter
-
     except APIError:
         raise
     except Exception as e:
         logger.error(f"创建章节失败: {e}")
-        raise APIError(code="CREATE_FAILED", message="创建章节失败", status_code=500)
+        raise APIError(code="CREATE_FAILED", message="创建章节失败", status_code=500) from e
+    else:
+        logger.info(f"创建章节: {chapter.id} - {chapter.title}")
+        return chapter
 
 
 @router.get("/{chapter_id}", response_model=ChapterResponse)
@@ -101,17 +104,21 @@ async def get_chapter(
     """
     获取章节详情
     """
+    def _raise_not_found() -> None:
+        raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+
     try:
         chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
-            raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+            _raise_not_found()
 
-        return chapter
     except APIError:
         raise
     except Exception as e:
         logger.error(f"获取章节详情失败: {e}")
-        raise APIError(code="FETCH_FAILED", message="获取章节详情失败", status_code=500)
+        raise APIError(code="FETCH_FAILED", message="获取章节详情失败", status_code=500) from e
+    else:
+        return chapter
 
 
 @router.get("/{chapter_id}/with-hints", response_model=ChapterWithHints)
@@ -122,17 +129,20 @@ async def get_chapter_with_hints(
     获取章节详情（包含section提纲）
     用于AI生成章节内容
     """
+    def _raise_not_found() -> None:
+        raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+    
     try:
         chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
-            raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
-
+            _raise_not_found()
+    
         # 获取section提纲
         section_hints = []
         if chapter.outline_node_id:
             sections = (
                 await OutlineNode.filter(
-                    parent_id=chapter.outline_node_id, node_type="section"
+                    parent_id=chapter.outline_node_id, node_type="section",
                 )
                 .order_by("position")
                 .all()
@@ -140,7 +150,7 @@ async def get_chapter_with_hints(
             section_hints = [
                 {"title": s.title, "description": s.description} for s in sections
             ]
-
+    
         # 构造响应
         chapter_dict = {
             "id": chapter.id,
@@ -156,14 +166,14 @@ async def get_chapter_with_hints(
             "updated_at": chapter.updated_at,
             "section_hints": section_hints,
         }
-
-        return chapter_dict
-
+    
     except APIError:
         raise
     except Exception as e:
         logger.error(f"获取章节详情失败: {e}")
-        raise APIError(code="FETCH_FAILED", message="获取章节详情失败", status_code=500)
+        raise APIError(code="FETCH_FAILED", message="获取章节详情失败", status_code=500) from e
+    else:
+        return chapter_dict
 
 
 @router.put("/{chapter_id}", response_model=ChapterResponse)
@@ -174,10 +184,13 @@ async def update_chapter(
     """
     更新章节
     """
+    def _raise_not_found() -> None:
+        raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+
     try:
         chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
-            raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+            _raise_not_found()
 
         # 更新字段
         if data.title is not None:
@@ -185,7 +198,7 @@ async def update_chapter(
         if data.content is not None:
             chapter.content = data.content
             # 更新字数统计（去除换行符和空格后的长度）
-            chapter.word_count = len(data.content.replace('\n', '').replace('\r', '').replace(' ', ''))
+            chapter.word_count = len(data.content.replace("\n", "").replace("\r", "").replace(" ", ""))
         if data.status is not None:
             chapter.status = data.status
 
@@ -205,14 +218,14 @@ async def update_chapter(
         except Exception as e:
             logger.error(f"更新项目字数统计失败: {e}")
 
-        logger.info(f"更新章节: {chapter.id}")
-        return chapter
-
     except APIError:
         raise
     except Exception as e:
         logger.error(f"更新章节失败: {e}")
-        raise APIError(code="UPDATE_FAILED", message="更新章节失败", status_code=500)
+        raise APIError(code="UPDATE_FAILED", message="更新章节失败", status_code=500) from e
+    else:
+        logger.info(f"更新章节: {chapter.id}")
+        return chapter
 
 
 @router.delete("/{chapter_id}")
@@ -222,20 +235,24 @@ async def delete_chapter(
     """
     删除章节（不影响大纲节点）
     """
+    def _raise_not_found() -> None:
+        raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+
     try:
         chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
-            raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+            _raise_not_found()
 
         await chapter.delete()
-        logger.info(f"删除章节: {chapter_id}")
-        return {"message": "删除成功"}
 
     except APIError:
         raise
     except Exception as e:
         logger.error(f"删除章节失败: {e}")
-        raise APIError(code="DELETE_FAILED", message="删除章节失败", status_code=500)
+        raise APIError(code="DELETE_FAILED", message="删除章节失败", status_code=500) from e
+    else:
+        logger.info(f"删除章节: {chapter_id}")
+        return {"message": "删除成功"}
 
 
 @router.post("/{chapter_id}/ai-generate-stream")
@@ -247,10 +264,13 @@ async def ai_generate_chapter_stream(
     """
     AI流式生成章节内容
     """
+    def _raise_not_found() -> None:
+        raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+
     try:
         chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
-            raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+            _raise_not_found()
 
         requirement = data.get("requirement", "")
 
@@ -269,7 +289,7 @@ async def ai_generate_chapter_stream(
                         end_idx = chunk.find("[/REASONING]")
                         reasoning_content = chunk[start_idx:end_idx]
                         yield f"[REASONING]{reasoning_content}[/REASONING]".encode(
-                            "utf-8"
+                            "utf-8",
                         )
                     elif chunk.strip():
                         yield chunk.encode("utf-8")
@@ -296,8 +316,8 @@ async def ai_generate_chapter_stream(
     except Exception as e:
         logger.error(f"AI生成章节失败: {e}")
         raise APIError(
-            code="AI_GENERATE_FAILED", message="AI生成章节失败", status_code=500
-        )
+            code="AI_GENERATE_FAILED", message="AI生成章节失败", status_code=500,
+        ) from e
 
 
 @router.post("/{chapter_id}/ai-continue-stream")
@@ -309,10 +329,13 @@ async def ai_continue_chapter_stream(
     """
     AI续写章节内容
     """
+    def _raise_not_found() -> None:
+        raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+
     try:
         chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
-            raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+            _raise_not_found()
 
         current_content = data.get("current_content", chapter.content)
         requirement = data.get("requirement", "")
@@ -332,7 +355,7 @@ async def ai_continue_chapter_stream(
                         end_idx = chunk.find("[/REASONING]")
                         reasoning_content = chunk[start_idx:end_idx]
                         yield f"[REASONING]{reasoning_content}[/REASONING]".encode(
-                            "utf-8"
+                            "utf-8",
                         )
                     elif chunk.strip():
                         yield chunk.encode("utf-8")
@@ -359,8 +382,8 @@ async def ai_continue_chapter_stream(
     except Exception as e:
         logger.error(f"AI续写章节失败: {e}")
         raise APIError(
-            code="AI_CONTINUE_FAILED", message="AI续写章节失败", status_code=500
-        )
+            code="AI_CONTINUE_FAILED", message="AI续写章节失败", status_code=500,
+        ) from e
 
 
 @router.post("/{chapter_id}/ai-optimize-stream")
@@ -372,10 +395,13 @@ async def ai_optimize_chapter_stream(
     """
     AI优化章节内容
     """
+    def _raise_not_found() -> None:
+        raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+
     try:
         chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
-            raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+            _raise_not_found()
 
         content_to_optimize = data.get("content", chapter.content)
         optimization_type = data.get("type", "general")  # general, grammar, style
@@ -395,7 +421,7 @@ async def ai_optimize_chapter_stream(
                         end_idx = chunk.find("[/REASONING]")
                         reasoning_content = chunk[start_idx:end_idx]
                         yield f"[REASONING]{reasoning_content}[/REASONING]".encode(
-                            "utf-8"
+                            "utf-8",
                         )
                     elif chunk.strip():
                         yield chunk.encode("utf-8")
@@ -422,5 +448,5 @@ async def ai_optimize_chapter_stream(
     except Exception as e:
         logger.error(f"AI优化章节失败: {e}")
         raise APIError(
-            code="AI_OPTIMIZE_FAILED", message="AI优化章节失败", status_code=500
-        )
+            code="AI_OPTIMIZE_FAILED", message="AI优化章节失败", status_code=500,
+        ) from e

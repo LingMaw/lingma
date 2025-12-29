@@ -4,15 +4,15 @@
 """
 
 import json
-from typing import AsyncGenerator, Dict, Any
+from typing import Any, AsyncGenerator, Dict
 
 from loguru import logger
 
 from src.backend.ai import ai_service
 from src.backend.core.exceptions import APIError
+from src.features.chapter.backend.services.sync_service import ChapterSyncService
 from src.features.novel_outline.backend.models import OutlineNode
 from src.features.novel_project.backend.models import NovelProject
-from src.features.chapter.backend.services.sync_service import ChapterSyncService
 
 
 class OutlineContinueService:
@@ -23,7 +23,7 @@ class OutlineContinueService:
         project_id: int,
         user_id: int,
         chapter_count: int,
-        additional_context: str = ""
+        additional_context: str = "",
     ) -> AsyncGenerator[str, None]:
         """
         流式生成续写大纲
@@ -54,24 +54,24 @@ class OutlineContinueService:
                 return
             
             # 3. 确定起始章节编号
-            last_chapter_number = existing_outline.get('last_chapter_number', 0)
+            last_chapter_number = existing_outline.get("last_chapter_number", 0)
             start_chapter_number = last_chapter_number + 1
             
             # 4. 构建续写 Prompt
             yield f"data: {json.dumps({'type': 'status', 'message': '构建续写提示词...'}, ensure_ascii=False)}\n\n"
             
             project_info = {
-                'title': project.title,
-                'genre': project.genre or '未指定',
-                'style': project.style or '未指定'
+                "title": project.title,
+                "genre": project.genre or "未指定",
+                "style": project.style or "未指定",
             }
             
             prompt = OutlineContinueService._build_continue_prompt(
-                existing_outline=existing_outline['outline'],
+                existing_outline=existing_outline["outline"],
                 project_info=project_info,
                 chapter_count=chapter_count,
                 additional_context=additional_context,
-                start_chapter_number=start_chapter_number
+                start_chapter_number=start_chapter_number,
             )
             
             # 5. 调用AI生成
@@ -79,7 +79,7 @@ class OutlineContinueService:
             
             full_response = ""
             async for chunk in ai_service.chat_with_ai_stream(user_id, [
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ]):
                 full_response += chunk
                 # 实时返回生成进度
@@ -93,18 +93,18 @@ class OutlineContinueService:
             # 7. 追加节点到大纲树
             yield f"data: {json.dumps({'type': 'status', 'message': '追加大纲节点...'}, ensure_ascii=False)}\n\n"
             
-            last_volume_id = existing_outline.get('last_volume_id')
+            last_volume_id = existing_outline.get("last_volume_id")
             created_count = await OutlineContinueService._append_nodes_to_outline(
                 project_id=project_id,
                 continue_data=continue_data,
-                last_volume_id=last_volume_id
+                last_volume_id=last_volume_id,
             )
             
             yield f"data: {json.dumps({'type': 'complete', 'created_count': created_count}, ensure_ascii=False)}\n\n"
             
         except Exception as e:
             logger.error(f"续写大纲失败: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': f'续写失败: {str(e)}'}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': f'续写失败: {e!s}'}, ensure_ascii=False)}\n\n"
 
     @staticmethod
     async def _extract_existing_outline(project_id: int) -> Dict[str, Any] | None:
@@ -134,7 +134,7 @@ class OutlineContinueService:
                 "description": node.description,
                 "node_type": node.node_type,
                 "position": node.position,
-                "children": []
+                "children": [],
             }
         
         # 构建父子关系
@@ -146,10 +146,10 @@ class OutlineContinueService:
             else:
                 parent = node_map.get(node.parent_id)
                 if parent:
-                    parent['children'].append(node_dict)
+                    parent["children"].append(node_dict)
         
         # 获取最后一个卷的ID
-        last_volume_id = volumes[-1]['id'] if volumes else None
+        last_volume_id = volumes[-1]["id"] if volumes else None
         
         # 计算最后一章的编号
         chapter_nodes = [n for n in nodes if n.node_type == "chapter"]
@@ -159,16 +159,16 @@ class OutlineContinueService:
             chapter_nodes,
             key=lambda n: (
                 parent_position_map.get(n.parent_id, 0),
-                n.position
-            )
+                n.position,
+            ),
         )
         last_chapter_number = len(chapter_nodes_sorted)
         
         return {
-            'outline': {'volumes': volumes},
-            'last_chapter_number': last_chapter_number,
-            'last_volume_id': last_volume_id,
-            'total_volumes': len(volumes)
+            "outline": {"volumes": volumes},
+            "last_chapter_number": last_chapter_number,
+            "last_volume_id": last_volume_id,
+            "total_volumes": len(volumes),
         }
 
     @staticmethod
@@ -177,10 +177,10 @@ class OutlineContinueService:
         project_info: dict,
         chapter_count: int,
         additional_context: str,
-        start_chapter_number: int
+        start_chapter_number: int,
     ) -> str:
         """构建续写 Prompt"""
-        prompt = f"""你是一位资深小说大纲规划师。现在需要为一部正在创作的小说续写大纲。
+        return f"""你是一位资深小说大纲规划师。现在需要为一部正在创作的小说续写大纲。
 
 【已有大纲】
 {json.dumps(existing_outline, ensure_ascii=False, indent=2)}
@@ -231,7 +231,6 @@ class OutlineContinueService:
 - 标题风格必须与原大纲一致
 - 章节编号从 {start_chapter_number} 开始连续编号
 """
-        return prompt
 
     @staticmethod
     def _parse_continue_response(response: str) -> Dict[str, Any]:
@@ -262,8 +261,6 @@ class OutlineContinueService:
             if "volumes" not in data or not isinstance(data["volumes"], list):
                 raise ValueError("无效的续写格式:缺少volumes字段")
             
-            return data
-            
         except json.JSONDecodeError as e:
             logger.error(f"解析续写JSON失败: {e}\n原始响应: {response}")
             # 返回默认结构
@@ -277,19 +274,20 @@ class OutlineContinueService:
                                 "title": "续写章节",
                                 "description": "续写内容",
                                 "sections": [
-                                    {"title": "续写小节", "description": "续写要点"}
-                                ]
-                            }
-                        ]
-                    }
-                ]
+                                    {"title": "续写小节", "description": "续写要点"},
+                                ],
+                            },
+                        ],
+                    },
+                ],
             }
+        return data
 
     @staticmethod
     async def _append_nodes_to_outline(
         project_id: int,
         continue_data: Dict[str, Any],
-        last_volume_id: int | None
+        last_volume_id: int | None,
     ) -> int:
         """
         将续写节点追加到大纲树
@@ -307,7 +305,7 @@ class OutlineContinueService:
                 max_vol = await OutlineNode.filter(
                     project_id=project_id,
                     parent_id=None,
-                    node_type="volume"
+                    node_type="volume",
                 ).order_by("-position").first()
                 
                 vol_position = (max_vol.position + 1) if (max_vol and max_vol.position is not None) else 0
@@ -332,7 +330,7 @@ class OutlineContinueService:
             max_chap = await OutlineNode.filter(
                 project_id=project_id,
                 parent_id=current_volume_id,
-                node_type="chapter"
+                node_type="chapter",
             ).order_by("-position").first()
             
             chap_start_position = (max_chap.position + 1) if (max_chap and max_chap.position is not None) else 0

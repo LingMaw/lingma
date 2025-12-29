@@ -8,7 +8,6 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ===== 角色模板相关 Schemas =====
 
 
@@ -26,8 +25,6 @@ class CharacterTemplateBase(BaseModel):
 
 class CharacterTemplateCreate(CharacterTemplateBase):
     """创建角色模板请求模型"""
-
-    pass
 
 
 class CharacterTemplateUpdate(BaseModel):

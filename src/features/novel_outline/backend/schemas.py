@@ -13,7 +13,7 @@ class OutlineNodeCreate(BaseModel):
     """创建大纲节点"""
 
     parent_id: Optional[int] = Field(None, description="父节点ID，null表示根节点")
-    node_type: Literal['volume', 'chapter', 'section'] = Field(..., description="节点类型：volume/chapter/section")
+    node_type: Literal["volume", "chapter", "section"] = Field(..., description="节点类型：volume/chapter/section")
     title: str = Field(..., min_length=1, max_length=200, description="节点标题")
     description: Optional[str] = Field(None, description="节点描述/摘要")
 
@@ -40,7 +40,7 @@ class OutlineNodeResponse(BaseModel):
     id: int
     project_id: int
     parent_id: Optional[int]
-    node_type: Literal['volume', 'chapter', 'section']
+    node_type: Literal["volume", "chapter", "section"]
     title: str
     description: Optional[str]
     position: int
