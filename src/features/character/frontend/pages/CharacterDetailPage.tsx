@@ -3,7 +3,7 @@
  * 展示和编辑角色完整信息
  */
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Box,
@@ -17,11 +17,14 @@ import {
   Tab,
   alpha,
   Chip,
+  CircularProgress,
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
   Public as PublicIcon,
   FolderSpecial as FolderSpecialIcon,
+  Save as SaveIcon,
+  Check as CheckIcon,
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { pageVariants } from '@/frontend/core/animation'
@@ -59,6 +62,26 @@ export default function CharacterDetailPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState(0)
   const [project, setProject] = useState<NovelProjectResponse | null>(null)
+  
+  // 自动保存相关状态
+  const [autoSaving, setAutoSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const formDataRef = useRef(formData)
+
+  // 更新 formDataRef
+  useEffect(() => {
+    formDataRef.current = formData
+  }, [formData])
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!isNew && characterId) {
@@ -104,6 +127,37 @@ export default function CharacterDetailPage() {
     }
   }
 
+  // 自动保存函数
+  const autoSave = useCallback(async () => {
+    // 只有编辑模式才自动保存，创建模式不自动保存
+    if (isNew || !characterId) return
+    
+    try {
+      setAutoSaving(true)
+      await characterAPI.update(Number(characterId), formDataRef.current)
+      setLastSaved(new Date())
+    } catch (err) {
+      console.error('自动保存失败:', err)
+    } finally {
+      setAutoSaving(false)
+    }
+  }, [isNew, characterId])
+
+  // 触发自动保存（防抖）
+  const triggerAutoSave = useCallback(() => {
+    if (isNew) return // 创建模式不自动保存
+    
+    // 清除之前的定时器
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+    }
+    
+    // 设置新的定时器（2秒后自动保存）
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSave()
+    }, 2000)
+  }, [isNew, autoSave])
+
   const handleSave = async (data: CharacterFormData) => {
     try {
       if (isNew) {
@@ -120,6 +174,7 @@ export default function CharacterDetailPage() {
         // 更新现有角色
         await characterAPI.update(Number(characterId), data)
         setSuccess('保存成功')
+        setLastSaved(new Date())
         loadCharacter()
       }
     } catch (err) {
@@ -127,6 +182,12 @@ export default function CharacterDetailPage() {
       console.error(err)
     }
   }
+
+  // 处理表单变化（触发自动保存）
+  const handleFormChange = useCallback((data: CharacterFormData) => {
+    setFormData(data)
+    triggerAutoSave()
+  }, [triggerAutoSave])
 
   return (
     <Container
@@ -146,6 +207,26 @@ export default function CharacterDetailPage() {
           <Typography variant="h4" fontWeight={600}>
             {isNew ? '创建角色' : character?.name || '角色详情'}
           </Typography>
+          {/* 自动保存状态 */}
+          {!isNew && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              {autoSaving ? (
+                <>
+                  <CircularProgress size={16} />
+                  <Typography variant="caption" color="text.secondary">
+                    保存中...
+                  </Typography>
+                </>
+              ) : lastSaved ? (
+                <>
+                  <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                  <Typography variant="caption" color="text.secondary">
+                    已保存 {new Date(lastSaved).toLocaleTimeString()}
+                  </Typography>
+                </>
+              ) : null}
+            </Stack>
+          )}
           {/* 显示角色归属：公共角色或项目专属 */}
           {((!isNew && character) || (isNew && urlProjectId)) && (
             (character?.project_id || urlProjectId) && project ? (
@@ -221,7 +302,7 @@ export default function CharacterDetailPage() {
             <CharacterForm
               character={character || undefined}
               formData={formData}
-              onFormChange={setFormData}
+              onFormChange={handleFormChange}
               onSave={handleSave}
               onCancel={() => navigate(-1)}
               mode={isNew ? 'create' : 'edit'}
@@ -231,7 +312,7 @@ export default function CharacterDetailPage() {
           {activeTab === 1 && (
             <BackgroundEditor
               formData={formData}
-              onFormChange={setFormData}
+              onFormChange={handleFormChange}
               onSave={handleSave}
             />
           )}
@@ -239,7 +320,7 @@ export default function CharacterDetailPage() {
           {activeTab === 2 && (
             <PersonalityEditor
               formData={formData}
-              onFormChange={setFormData}
+              onFormChange={handleFormChange}
               onSave={handleSave}
             />
           )}
@@ -247,7 +328,7 @@ export default function CharacterDetailPage() {
           {activeTab === 3 && (
             <AbilitiesEditor
               formData={formData}
-              onFormChange={setFormData}
+              onFormChange={handleFormChange}
               onSave={handleSave}
             />
           )}

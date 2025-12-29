@@ -8,6 +8,7 @@ from loguru import logger
 
 from src.backend.ai import ai_service
 from src.features.chapter.backend.models import Chapter
+from src.features.character.backend.models import Character
 from src.features.novel_outline.backend.models import OutlineNode
 
 
@@ -77,6 +78,43 @@ class ChapterAIService:
                 if chapter_outline.description:
                     prompt_parts.append(f"章简介：{chapter_outline.description}")
             
+            # 获取并添加角色设定信息
+            characters = await Character.filter(project_id=chapter.project_id).all()
+            if characters:
+                prompt_parts.append("\n【角色设定】")
+                prompt_parts.append("以下是本项目的主要角色，请在创作时保持角色设定的一致性：\n")
+                for char in characters:
+                    prompt_parts.append(f"角色名：{char.name}")
+                    # 添加基本信息
+                    if char.basic_info:
+                        basic = char.basic_info
+                        info_parts = []
+                        if basic.get("gender"):
+                            info_parts.append(f"性别：{basic['gender']}")
+                        if basic.get("age"):
+                            info_parts.append(f"年龄：{basic['age']}")
+                        if basic.get("occupation"):
+                            info_parts.append(f"职业：{basic['occupation']}")
+                        if basic.get("category"):
+                            info_parts.append(f"角色定位：{basic['category']}")
+                        if info_parts:
+                            prompt_parts.append(f"  基本信息：{'，'.join(info_parts)}")
+                    # 添加性格特征
+                    if char.personality:
+                        personality = char.personality
+                        traits = personality.get("traits", [])
+                        if traits:
+                            prompt_parts.append(f"  性格特征：{'、'.join(traits[:5])}")
+                    # 添加背景简介
+                    if char.background:
+                        background = char.background
+                        if background.get("summary"):
+                            prompt_parts.append(f"  背景简介：{background['summary'][:100]}")
+                    # 添加其他备注
+                    if char.notes:
+                        prompt_parts.append(f"  其他备注：{char.notes}")
+                    prompt_parts.append("")  # 空行分隔
+            
             prompt_parts.append(f"\n请为章节《{chapter.title}》创作正文内容。")
 
             if section_hints:
@@ -141,8 +179,49 @@ class ChapterAIService:
             novel_genre = chapter.project.genre if chapter.project else ""
             novel_style = chapter.project.style if chapter.project else ""
 
+            # 获取并添加角色设定信息
+            characters = await Character.filter(project_id=chapter.project_id).all()
+            
             # 构建续写提示词
-            prompt_parts = [f"请为章节《{chapter.title}》续写内容。"]
+            prompt_parts = []
+            
+            # 添加角色设定
+            if characters:
+                prompt_parts.append("【角色设定】")
+                prompt_parts.append("以下是本项目的主要角色，请在续写时保持角色设定的一致性：\n")
+                for char in characters:
+                    prompt_parts.append(f"角色名：{char.name}")
+                    # 添加基本信息
+                    if char.basic_info:
+                        basic = char.basic_info
+                        info_parts = []
+                        if basic.get("gender"):
+                            info_parts.append(f"性别：{basic['gender']}")
+                        if basic.get("age"):
+                            info_parts.append(f"年龄：{basic['age']}")
+                        if basic.get("occupation"):
+                            info_parts.append(f"职业：{basic['occupation']}")
+                        if basic.get("category"):
+                            info_parts.append(f"角色定位：{basic['category']}")
+                        if info_parts:
+                            prompt_parts.append(f"  基本信息：{'，'.join(info_parts)}")
+                    # 添加性格特征
+                    if char.personality:
+                        personality = char.personality
+                        traits = personality.get("traits", [])
+                        if traits:
+                            prompt_parts.append(f"  性格特征：{'、'.join(traits[:5])}")
+                    # 添加背景简介
+                    if char.background:
+                        background = char.background
+                        if background.get("summary"):
+                            prompt_parts.append(f"  背景简介：{background['summary'][:100]}")
+                    # 添加其他备注
+                    if char.notes:
+                        prompt_parts.append(f"  其他备注：{char.notes}")
+                    prompt_parts.append("")  # 空行分隔
+            
+            prompt_parts.append(f"\n请为章节《{chapter.title}》续写内容。")
 
             if current_content:
                 # 取最后1000字作为上下文
