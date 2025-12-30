@@ -7,6 +7,7 @@ from typing import AsyncGenerator
 from loguru import logger
 
 from src.backend.ai import ai_service
+from src.features.character.backend.models import Character
 from src.features.novel_project.backend.models import NovelProject
 
 
@@ -50,6 +51,44 @@ class ProjectAIService:
             
             if project.description:
                 prompt_parts.append(f"小说描述：{project.description}")
+            
+            # 获取并添加角色设定信息
+            characters = await Character.filter(project_id=project.id).all()
+            if characters:
+                prompt_parts.append("\n【角色设定】")
+                prompt_parts.append("以下是本项目的主要角色，请在创作中合理运用这些角色：\n")
+                for char in characters:
+                    char_info = [f"角色名：{char.name}"]
+                    # 添加基本信息
+                    if char.basic_info:
+                        basic = char.basic_info
+                        info_parts = []
+                        if basic.get("gender"):
+                            info_parts.append(f"性别：{basic['gender']}")
+                        if basic.get("age"):
+                            info_parts.append(f"年龄：{basic['age']}")
+                        if basic.get("occupation"):
+                            info_parts.append(f"职业：{basic['occupation']}")
+                        if basic.get("category"):
+                            info_parts.append(f"角色定位：{basic['category']}")
+                        if info_parts:
+                            char_info.append(f"  基本信息：{'，'.join(info_parts)}")
+                    # 添加性格特征
+                    if char.personality:
+                        personality = char.personality
+                        traits = personality.get("traits", [])
+                        if traits:
+                            char_info.append(f"  性格特征：{'、'.join(traits[:5])}")
+                    # 添加背景简介
+                    if char.background:
+                        background = char.background
+                        if background.get("summary"):
+                            char_info.append(f"  背景简介：{background['summary'][:100]}")
+                    # 添加其他备注
+                    if char.notes:
+                        char_info.append(f"  其他备注：{char.notes}")
+                    prompt_parts.append("\n".join(char_info))
+                    prompt_parts.append("")
             
             if requirement:
                 prompt_parts.append(f"用户要求：{requirement}")
@@ -110,6 +149,36 @@ class ProjectAIService:
                 f"继续创作小说《{novel_title}》的后续内容。",
                 f"前文内容（最后{len(context_content)}字）：\n{context_content}",
             ]
+            
+            # 获取并添加角色设定信息
+            characters = await Character.filter(project_id=project.id).all()
+            if characters:
+                prompt_parts.append("\n【角色设定参考】")
+                prompt_parts.append("请注意以下角色设定，保持角色一致性：\n")
+                for char in characters:
+                    char_info = [f"角色名：{char.name}"]
+                    # 添加基本信息
+                    if char.basic_info:
+                        basic = char.basic_info
+                        info_parts = []
+                        if basic.get("gender"):
+                            info_parts.append(f"性别：{basic['gender']}")
+                        if basic.get("age"):
+                            info_parts.append(f"年龄：{basic['age']}")
+                        if basic.get("occupation"):
+                            info_parts.append(f"职业：{basic['occupation']}")
+                        if basic.get("category"):
+                            info_parts.append(f"角色定位：{basic['category']}")
+                        if info_parts:
+                            char_info.append(f"  基本信息：{'，'.join(info_parts)}")
+                    # 添加性格特征
+                    if char.personality:
+                        personality = char.personality
+                        traits = personality.get("traits", [])
+                        if traits:
+                            char_info.append(f"  性格特征：{'、'.join(traits[:5])}")
+                    prompt_parts.append("\n".join(char_info))
+                    prompt_parts.append("")
             
             if requirement:
                 prompt_parts.append(f"续写要求：{requirement}")
