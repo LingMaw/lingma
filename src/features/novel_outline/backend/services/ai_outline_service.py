@@ -274,6 +274,18 @@ class AIOutlineService:
             else:
                 json_str = response.strip()
             
+            # 清理JSON字符串
+            import re
+            # 移除注释 (// 和 /* */)
+            json_str = re.sub(r"//.*?$", "", json_str, flags=re.MULTILINE)
+            json_str = re.sub(r"/\*.*?\*/", "", json_str, flags=re.DOTALL)
+            # 移除尾随逗号
+            json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
+            # 移除控制字符（保留换行和制表符）
+            json_str = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", json_str)
+            
+            logger.debug(f"提取的JSON字符串: {json_str[:500]}...")  # 记录前500字符
+            
             # 解析JSON
             data = json.loads(json_str)
             
@@ -282,7 +294,9 @@ class AIOutlineService:
                 raise ValueError("无效的大纲格式：缺少volumes字段")
             
         except json.JSONDecodeError as e:
-            logger.error(f"解析大纲JSON失败: {e}\n原始响应: {response}")
+            logger.error(f"解析大纲JSON失败: {e}")
+            logger.error(f"提取的JSON字符串: {json_str if 'json_str' in locals() else '未提取'}")
+            logger.debug(f"原始响应: {response}")
             # 返回默认结构
             return {
                 "volumes": [
