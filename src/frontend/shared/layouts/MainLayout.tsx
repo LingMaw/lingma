@@ -12,6 +12,7 @@ import {
   ChevronRight as ChevronRightIcon,
   Person as PersonIcon,
   Token as TokenIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material'
 import {
   AppBar,
@@ -52,6 +53,7 @@ const menuItems = [
   { path: '/novel_project', text: '小说项目管理', icon: <BorderColorIcon /> },
   { path: '/characters', text: '角色管理', icon: <BorderColorIcon /> },
   { path: '/token-statistics', text: 'Token统计', icon: <TokenIcon /> },
+  { path: '/prompt-records', text: '提示词记录', icon: <HistoryIcon /> },
   { path: '/profile', text: '个人资料', icon: <PersonIcon /> },
 ]
 

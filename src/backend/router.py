@@ -8,6 +8,7 @@ from src.features.dashboard.backend.router import router as dashboard_router
 from src.features.novel_generator.backend.router import router as novel_generator_router
 from src.features.novel_outline.backend.router import router as outline_router
 from src.features.novel_project.backend.router import router as novel_project_router
+from src.features.prompt_records.backend.router import router as prompt_records_router
 from src.features.user.backend.router import router as auth_router
 
 # 创建主 API 路由
@@ -22,6 +23,7 @@ api_router.include_router(novel_project_router, prefix="/novel_projects", tags=[
 api_router.include_router(outline_router, prefix="/novels", tags=["大纲系统"])
 api_router.include_router(chapter_router, prefix="/novels", tags=["章节系统"])
 api_router.include_router(character_router, prefix="", tags=["人物设定"])
+api_router.include_router(prompt_records_router, prefix="", tags=["提示词记录"])
 
 
 @api_router.get("/info", tags=["系统信息"])

@@ -21,6 +21,9 @@ import { ProjectCharacterListPage, CharacterDetailPage, AllCharactersPage, Chara
 // Token统计系统
 import { TokenStatisticsPage } from '@/features/token_statistics/frontend'
 
+// 提示词记录系统
+import PromptRecordsPage from '@/features/prompt_records/frontend/pages/PromptRecordsPage'
+
 import ProtectedRoute from './ProtectedRoute'
 
 const router = createHashRouter([
@@ -37,6 +40,7 @@ const router = createHashRouter([
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/profile', element: <ProfilePage /> },
       { path: '/token-statistics', element: <TokenStatisticsPage /> },
+      { path: '/prompt-records', element: <PromptRecordsPage /> },
       { path: '/novel_generator', element: <NovelGeneratorPage /> },
       { path: '/novel_project', element: <NovelProjectListPage /> },
       { path: '/novel_projects/create', element: <NovelProjectDetailPage /> },
