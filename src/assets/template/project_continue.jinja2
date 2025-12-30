@@ -1,0 +1,32 @@
+继续创作小说《{{ novel_title }}》的后续内容。
+前文内容（最后{{ context_length }}字）：
+{{ context_content }}
+{%- if characters %}
+
+【角色设定参考】
+请注意以下角色设定，保持角色一致性：
+
+{% for char in characters %}
+角色名：{{ char.name }}
+{%- if char.basic_info %}
+{%- set basic = char.basic_info %}
+{%- set info_parts = [] %}
+{%- if basic.get('gender') %}{% set _ = info_parts.append("性别：" + basic['gender']) %}{% endif %}
+{%- if basic.get('age') %}{% set _ = info_parts.append("年龄：" + basic['age']) %}{% endif %}
+{%- if basic.get('occupation') %}{% set _ = info_parts.append("职业：" + basic['occupation']) %}{% endif %}
+{%- if basic.get('category') %}{% set _ = info_parts.append("角色定位：" + basic['category']) %}{% endif %}
+{%- if info_parts %}
+  基本信息：{{ info_parts|join('，') }}
+{%- endif %}
+{%- endif %}
+{%- if char.personality and char.personality.get('traits') %}
+  性格特征：{{ char.personality['traits'][:5]|join('、') }}
+{%- endif %}
+
+{% endfor %}
+{%- endif %}
+{%- if requirement %}
+续写要求：{{ requirement }}
+{%- else %}
+请自然流畅地推进故事情节，保持前文的风格和节奏。
+{%- endif %}

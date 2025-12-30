@@ -1,0 +1,42 @@
+{%- if characters %}
+【角色设定】
+以下是本项目的主要角色，请在续写时保持角色设定的一致性：
+
+{% for char in characters %}
+角色名：{{ char.name }}
+{%- if char.basic_info %}
+{%- set basic = char.basic_info %}
+{%- set info_parts = [] %}
+{%- if basic.get('gender') %}{% set _ = info_parts.append("性别：" + basic['gender']) %}{% endif %}
+{%- if basic.get('age') %}{% set _ = info_parts.append("年龄：" + basic['age']) %}{% endif %}
+{%- if basic.get('occupation') %}{% set _ = info_parts.append("职业：" + basic['occupation']) %}{% endif %}
+{%- if basic.get('category') %}{% set _ = info_parts.append("角色定位：" + basic['category']) %}{% endif %}
+{%- if info_parts %}
+  基本信息：{{ info_parts|join('，') }}
+{%- endif %}
+{%- endif %}
+{%- if char.personality and char.personality.get('traits') %}
+  性格特征：{{ char.personality['traits'][:5]|join('、') }}
+{%- endif %}
+{%- if char.background and char.background.get('summary') %}
+  背景简介：{{ char.background['summary'][:100] }}
+{%- endif %}
+{%- if char.notes %}
+  其他备注：{{ char.notes }}
+{%- endif %}
+
+{% endfor %}
+{%- endif %}
+
+请为章节《{{ chapter_title }}》续写内容。
+{%- if current_content %}
+
+已有内容的最后部分：
+{{ current_content }}
+{%- endif %}
+{%- if requirement %}
+
+续写要求：{{ requirement }}
+{% endif %}
+
+请自然地继续故事，保持风格一致。直接开始续写，不需要任何前言。使用txt格式，不要包含markdown格式。

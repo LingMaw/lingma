@@ -1,5 +1,5 @@
-"""AI大纲生成服务
-支持根据用户输入的主题/设定生成结构化大纲
+"""AI大纸生成服务
+支持根据用户输入的主题/设定生成结构化大纸
 """
 
 import asyncio
@@ -8,6 +8,7 @@ from typing import Any, AsyncGenerator, Dict, List
 
 from src.backend.ai import ai_service
 from src.backend.core.logger import logger
+from src.backend.core.template import TemplateManager
 from src.features.chapter.backend.services.sync_service import ChapterSyncService
 from src.features.character.backend.models import Character
 from src.features.novel_outline.backend.models import OutlineNode
@@ -15,7 +16,10 @@ from src.features.novel_project.backend.models import NovelProject
 
 
 class AIOutlineService:
-    """AI大纲生成服务"""
+    """AI大纸生成服务"""
+
+    # 类级别模板管理器，所有实例共享
+    template_manager = TemplateManager()
 
     @staticmethod
     async def generate_outline_stream(
@@ -101,7 +105,44 @@ class AIOutlineService:
         chapter_count_min: int = 10,
         chapter_count_max: int = 50,
     ) -> str:
-        """构建大纲生成提示词（包含项目角色信息）"""
+        """构建大纸生成提示词（使用模板渲染，失败时回退到硬编码）"""
+        # 获取项目角色信息
+        characters = await Character.filter(project_id=project_id).all()
+            
+        # 尝试使用模板渲染
+        try:
+            logger.info("使用模板生成大纸提示词成功")
+            return AIOutlineService.template_manager.render(
+                "outline.jinja2",
+                topic=topic,
+                genre=genre,
+                style=style,
+                characters=characters,
+                key_plots=key_plots or [],
+                additional_content=additional_content,
+                chapter_count_min=chapter_count_min,
+                chapter_count_max=chapter_count_max,
+            )
+        except Exception as e:
+            logger.warning(f"模板渲染失败，使用硬编码方法: {e}")
+            # 降级到硬编码方法
+            return await AIOutlineService._build_outline_prompt_legacy(
+                project_id, topic, genre, style, key_plots, additional_content, 
+                chapter_count_min, chapter_count_max,
+            )
+    
+    @staticmethod
+    async def _build_outline_prompt_legacy(
+        project_id: int,
+        topic: str,
+        genre: str = "",
+        style: str = "",
+        key_plots: list[str] | None = None,
+        additional_content: str = "",
+        chapter_count_min: int = 10,
+        chapter_count_max: int = 50,
+    ) -> str:
+        """构建大纸生成提示词（硬编码方法，作为降级方案）"""
         prompt = f"""请根据以下设定生成一个小说大纲结构：
 
 主题设定：{topic}

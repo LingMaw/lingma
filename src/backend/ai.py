@@ -11,6 +11,7 @@ from openai import AsyncOpenAI
 
 from src.backend.core.cache import UserAIConfig, config_cache_manager
 from src.backend.core.logger import logger
+from src.backend.core.template import TemplateManager
 from src.backend.services.token_statistics import token_statistics_service
 from src.features.user.backend.models import UserSetting
 
@@ -26,6 +27,8 @@ class AIService:
         self.api_base = None
         self.api_model = None
         self.api_max_tokens = None
+        # 初始化模板管理器
+        self.template_manager = TemplateManager()
         logger.info("AI客户端初始化完成")
 
     async def load_user_settings(self, user_id: int):
@@ -157,7 +160,36 @@ class AIService:
 
     def _build_prompt(self, title: str, genre: str = "", style: str = "", requirement: str = "") -> str:
         """
-        构建生成短篇小说的提示词
+        构建生成短篇小说的提示词（使用模板渲染，失败时回退到硬编码）
+
+        Args:
+            title: 小说标题
+            genre: 小说类型
+            style: 写作风格
+            requirement: 详细要求
+
+        Returns:
+            str: 构建好的提示词
+        """
+        # 尝试使用模板渲染
+        try:
+            
+            logger.info("使用模板生成短篇小说提示词成功")
+            return self.template_manager.render(
+                "short_story.jinja2",
+                title=title,
+                genre=genre,
+                style=style,
+                requirement=requirement,
+            )
+        except Exception as e:
+            logger.warning(f"模板渲染失败，使用硬编码方法: {e}")
+            # 降级到硬编码方法
+            return self._build_prompt_legacy(title, genre, style, requirement)
+
+    def _build_prompt_legacy(self, title: str, genre: str = "", style: str = "", requirement: str = "") -> str:
+        """
+        构建生成短篇小说的提示词（硬编码方法，作为降级方案）
 
         Args:
             title: 小说标题

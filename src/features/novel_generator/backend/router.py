@@ -2,18 +2,16 @@
 提供小说生成、查询等接口
 """
 
-import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Query
 from fastapi.responses import StreamingResponse
-from sse_starlette.sse import EventSourceResponse
 
-from src.backend.ai import ai_service
 from src.backend.core.dependencies import CurrentUserId
-from src.backend.core.exceptions import APIError, AuthenticationError
+from src.backend.core.exceptions import AuthenticationError
 from src.backend.core.logger import logger
 from src.backend.core.security import decode_access_token
+from src.features.novel_generator.backend.services import ai_service
 
 # 创建一个简单的路由器
 router = APIRouter(tags=["AI小说生成器"])
@@ -71,25 +69,20 @@ async def generate_novel_stream(
             ):
                 # 处理思维链内容和普通内容
                 if "[REASONING]" in chunk and "[/REASONING]" in chunk:
-                    # 这是思维链内容，我们需要特殊处理
                     start_idx = chunk.find("[REASONING]") + len("[REASONING]")
                     end_idx = chunk.find("[/REASONING]")
                     reasoning_content = chunk[start_idx:end_idx]
-                    
-                    # 使用特殊标记包装思维链内容
                     yield f"[REASONING]{reasoning_content}[/REASONING]".encode("utf-8")
                 elif chunk.strip():
-                    # 只发送非空内容
                     yield chunk.encode("utf-8")
                 
-                # 添加心跳包以保持连接活跃，使用标准SSE注释格式
+                # 心跳包以保持连接活跃
                 yield "".encode("utf-8")
                 
         except Exception as e:
             logger.error(f"流式生成过程中发生错误: {e}")
             yield f"error: {e!s}\n\n".encode("utf-8")
         finally:
-            # 发送结束标记
             yield "".encode("utf-8")
         
     return StreamingResponse(

@@ -1,0 +1,95 @@
+请根据以下设定生成一个小说大纲结构：
+
+主题设定：{{ topic }}
+{% if genre %}
+小说类型：{{ genre }}
+{% endif %}
+{%- if style %}
+写作风格：{{ style }}
+{% endif %}
+{%- if characters %}
+
+【角色设定】
+以下是本项目的主要角色，请在生成大纲时合理安排这些角色的出场：
+
+{% for char in characters %}
+角色名：{{ char.name }}
+{%- if char.basic_info %}
+{%- set basic = char.basic_info %}
+{%- set info_parts = [] %}
+{%- if basic.gender %}{% set _ = info_parts.append("性别：" + basic.gender) %}{% endif %}
+{%- if basic.age %}{% set _ = info_parts.append("年龄：" + basic.age) %}{% endif %}
+{%- if basic.occupation %}{% set _ = info_parts.append("职业：" + basic.occupation) %}{% endif %}
+{%- if basic.category %}{% set _ = info_parts.append("角色定位：" + basic.category) %}{% endif %}
+{%- if info_parts %}
+  基本信息：{{ info_parts|join('，') }}
+{%- endif %}
+{%- endif %}
+{%- if char.personality and char.personality.traits %}
+  性格特征：{{ char.personality.traits[:5]|join('、') }}
+{%- endif %}
+{%- if char.background and char.background.summary %}
+  背景简介：{{ char.background.summary[:100] }}
+{%- endif %}
+{%- if char.notes %}
+  其他备注：{{ char.notes }}
+{%- endif %}
+
+{% endfor %}
+{%- endif %}
+{%- if key_plots %}
+
+关键剧情点：
+{% for plot in key_plots %}
+{{ loop.index }}. {{ plot }}
+{% endfor %}
+{%- endif %}
+{%- if additional_content %}
+
+其他要求/补充说明：
+{{ additional_content }}
+{% endif %}
+
+结构要求：
+- 总章节数在 {{ chapter_count_min }}-{{ chapter_count_max }} 章之间
+- 根据故事内容自行决定卷数（建议2-5卷）
+- 每卷的章节数可以不同，根据剧情需要灵活安排
+- 每章包含3-5个小节（section）
+- 确保故事完整性，有明确的开端、发展、高潮和结局
+- 【重要】每个小节的description必须包含"出场人物："标识，列出该小节中出现的角色名称
+
+请按照以下JSON格式返回大纲结构（只返回JSON，不要其他说明）：
+
+{
+  "volumes": [
+    {
+      "title": "第一卷标题",
+      "description": "卷的简介",
+      "chapters": [
+        {
+          "title": "第一章标题",
+          "description": "章节简介",
+          "sections": [
+            {
+              "title": "小节标题",
+              "description": "小节内容概要。出场人物：角色A、角色B"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+要求：
+1. 标题要有吸引力，符合{{ genre if genre else '小说' }}类型特点
+2. 描述要具体，包含关键情节和人物
+3. 层次清晰，逻辑连贯
+4. 每个节点都要有title和description字段
+5. 严格按照JSON格式输出，确保可以被解析
+6. 灵活安排卷数和每卷章节数，确保故事节奏合理
+7. 总章节数必须在{{ chapter_count_min }}-{{ chapter_count_max }}章范围内
+8. 【重要】每个section的description必须以"出场人物："结尾，列出该小节中出场的角色
+   - {% if characters %}可用角色：{{ characters|map(attribute='name')|join(', ') }}{% else %}请根据故事需要创建合适的角色{% endif %}
+   - 格式示例："主角初次来到学院，感受到浓厚的学术氛围。出场人物：张三、李四"
+   - 如果该小节无角色出场，写"出场人物：无"
