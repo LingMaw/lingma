@@ -4,7 +4,7 @@
 """
 from datetime import datetime
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
@@ -30,7 +30,7 @@ class UserResponse(BaseModel):
     email: str | None = None
     nickname: str | None = None
     role: str = "user"
-    avatar: HttpUrl | None = None
+    avatar: str | None = None
     created_at: datetime | None = None
 
     class Config:

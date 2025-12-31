@@ -303,4 +303,160 @@ export const chapterAPI = {
 
     return () => controller.abort()
   },
+
+  /**
+   * AI扩写章节内容（流式）
+   */
+  async aiExpandChapterStream(
+    chapterId: number,
+    options: {
+      content: string
+      expandRatio?: number
+      requirement?: string
+      onChunk: (chunk: string) => void
+      onComplete?: () => void
+      onError?: (error: Error) => void
+    }
+  ): Promise<() => void> {
+    const controller = new AbortController()
+    const token = localStorage.getItem('token')
+
+    if (!token) {
+      throw new Error('未登录')
+    }
+
+    try {
+      const response = await fetch(
+        `${httpClient.defaults.baseURL}/novels/chapters/${chapterId}/ai-expand-stream`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            content: options.content,
+            expand_ratio: options.expandRatio || 1.5,
+            requirement: options.requirement || '',
+          }),
+          signal: controller.signal,
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error('无法读取响应流')
+      }
+
+      ;(async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) {
+              options.onComplete?.()
+              break
+            }
+            const chunk = decoder.decode(value, { stream: true })
+            if (chunk) {
+              options.onChunk(chunk)
+            }
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name !== 'AbortError') {
+            options.onError?.(error)
+          }
+        }
+      })()
+    } catch (error) {
+      if (error instanceof Error && error.name !== 'AbortError') {
+        options.onError?.(error)
+      }
+    }
+
+    return () => controller.abort()
+  },
+
+  /**
+   * AI缩写章节内容（流式）
+   */
+  async aiCompressChapterStream(
+    chapterId: number,
+    options: {
+      content: string
+      compressRatio?: number
+      requirement?: string
+      onChunk: (chunk: string) => void
+      onComplete?: () => void
+      onError?: (error: Error) => void
+    }
+  ): Promise<() => void> {
+    const controller = new AbortController()
+    const token = localStorage.getItem('token')
+
+    if (!token) {
+      throw new Error('未登录')
+    }
+
+    try {
+      const response = await fetch(
+        `${httpClient.defaults.baseURL}/novels/chapters/${chapterId}/ai-compress-stream`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            content: options.content,
+            compress_ratio: options.compressRatio || 50,
+            requirement: options.requirement || '',
+          }),
+          signal: controller.signal,
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error('无法读取响应流')
+      }
+
+      ;(async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) {
+              options.onComplete?.()
+              break
+            }
+            const chunk = decoder.decode(value, { stream: true })
+            if (chunk) {
+              options.onChunk(chunk)
+            }
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name !== 'AbortError') {
+            options.onError?.(error)
+          }
+        }
+      })()
+    } catch (error) {
+      if (error instanceof Error && error.name !== 'AbortError') {
+        options.onError?.(error)
+      }
+    }
+
+    return () => controller.abort()
+  },
 }

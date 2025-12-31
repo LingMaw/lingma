@@ -451,3 +451,139 @@ async def ai_optimize_chapter_stream(
         raise APIError(
             code="AI_OPTIMIZE_FAILED", message="AI优化章节失败", status_code=500,
         ) from e
+
+
+@router.post("/{chapter_id}/ai-expand-stream")
+async def ai_expand_chapter_stream(
+    chapter_id: int = Path(..., description="章节ID"),
+    data: Dict[str, Any] = Body(...),
+    user_id: CurrentUserId = None,
+):
+    """
+    AI扩写章节内容
+    """
+    def _raise_not_found() -> None:
+        raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+
+    try:
+        chapter = await Chapter.get_or_none(id=chapter_id)
+        if not chapter:
+            _raise_not_found()
+
+        content_to_expand = data.get("content", chapter.content)
+        expand_ratio = data.get("expand_ratio", 1.5)  # 默认扩写1.5倍
+        requirement = data.get("requirement", "")
+
+        async def content_stream():
+            try:
+                yield "".encode("utf-8")
+
+                async for chunk in chapter_ai_service.expand_chapter_content(
+                    chapter=chapter,
+                    user_id=int(user_id),
+                    content=content_to_expand,
+                    expand_ratio=expand_ratio,
+                    requirement=requirement,
+                ):
+                    if "[REASONING]" in chunk and "[/REASONING]" in chunk:
+                        start_idx = chunk.find("[REASONING]") + len("[REASONING]")
+                        end_idx = chunk.find("[/REASONING]")
+                        reasoning_content = chunk[start_idx:end_idx]
+                        yield f"[REASONING]{reasoning_content}[/REASONING]".encode(
+                            "utf-8",
+                        )
+                    elif chunk.strip():
+                        yield chunk.encode("utf-8")
+                    yield "".encode("utf-8")
+
+            except Exception as e:
+                logger.error(f"流式扩写章节内容时发生错误: {e}")
+                yield f"error: {e!s}\n\n".encode("utf-8")
+            finally:
+                yield "".encode("utf-8")
+
+        return StreamingResponse(
+            content_stream(),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"AI扩写章节失败: {e}")
+        raise APIError(
+            code="AI_EXPAND_FAILED", message="AI扩写章节失败", status_code=500,
+        ) from e
+
+
+@router.post("/{chapter_id}/ai-compress-stream")
+async def ai_compress_chapter_stream(
+    chapter_id: int = Path(..., description="章节ID"),
+    data: Dict[str, Any] = Body(...),
+    user_id: CurrentUserId = None,
+):
+    """
+    AI缩写章节内容
+    """
+    def _raise_not_found() -> None:
+        raise APIError(code="NOT_FOUND", message="章节不存在", status_code=404)
+
+    try:
+        chapter = await Chapter.get_or_none(id=chapter_id)
+        if not chapter:
+            _raise_not_found()
+
+        content_to_compress = data.get("content", chapter.content)
+        compress_ratio = data.get("compress_ratio", 50)  # 默认压缩到50%
+        requirement = data.get("requirement", "")
+
+        async def content_stream():
+            try:
+                yield "".encode("utf-8")
+
+                async for chunk in chapter_ai_service.compress_chapter_content(
+                    chapter=chapter,
+                    user_id=int(user_id),
+                    content=content_to_compress,
+                    compress_ratio=compress_ratio,
+                    requirement=requirement,
+                ):
+                    if "[REASONING]" in chunk and "[/REASONING]" in chunk:
+                        start_idx = chunk.find("[REASONING]") + len("[REASONING]")
+                        end_idx = chunk.find("[/REASONING]")
+                        reasoning_content = chunk[start_idx:end_idx]
+                        yield f"[REASONING]{reasoning_content}[/REASONING]".encode(
+                            "utf-8",
+                        )
+                    elif chunk.strip():
+                        yield chunk.encode("utf-8")
+                    yield "".encode("utf-8")
+
+            except Exception as e:
+                logger.error(f"流式缩写章节内容时发生错误: {e}")
+                yield f"error: {e!s}\n\n".encode("utf-8")
+            finally:
+                yield "".encode("utf-8")
+
+        return StreamingResponse(
+            content_stream(),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"AI缩写章节失败: {e}")
+        raise APIError(
+            code="AI_COMPRESS_FAILED", message="AI缩写章节失败", status_code=500,
+        ) from e

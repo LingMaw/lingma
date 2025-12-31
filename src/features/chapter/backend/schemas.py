@@ -25,6 +25,22 @@ class ChapterUpdate(BaseModel):
     status: Optional[str] = Field(None, description="状态：draft/completed/ai_generated")
 
 
+class ChapterExpandRequest(BaseModel):
+    """章节扩写请求"""
+
+    content: str = Field(..., description="原始内容")
+    expand_ratio: float = Field(default=1.5, ge=1.0, le=5.0, description="扩写比例（1.0-5.0）")
+    requirement: Optional[str] = Field(default="", description="额外要求")
+
+
+class ChapterCompressRequest(BaseModel):
+    """章节缩写请求"""
+
+    content: str = Field(..., description="原始内容")
+    compress_ratio: int = Field(default=50, ge=10, le=90, description="压缩比例（10-90，表示压缩到50%）")
+    requirement: Optional[str] = Field(default="", description="额外要求")
+
+
 # 响应模型
 class ChapterResponse(BaseModel):
     """章节响应"""

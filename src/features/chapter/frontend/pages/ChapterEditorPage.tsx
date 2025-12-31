@@ -39,6 +39,8 @@ import {
   Close,
   Spellcheck,
   Brush,
+  ZoomIn,
+  ZoomOut,
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { pageVariants } from '@/frontend/core/animation'
@@ -68,8 +70,12 @@ export default function ChapterEditorPage() {
   const [aiDialogTitle, setAiDialogTitle] = useState('')
   const [aiRequirementInputOpen, setAiRequirementInputOpen] = useState(false)
   const [aiRequirement, setAiRequirement] = useState('')
-  const [aiPendingAction, setAiPendingAction] = useState<'generate' | 'continue' | null>(null)
+  const [aiPendingAction, setAiPendingAction] = useState<'generate' | 'continue' | 'expand' | 'compress' | null>(null)
   const abortControllerRef = useRef<(() => void) | null>(null)
+  
+  // 扩写/缩写参数
+  const [expandRatio, setExpandRatio] = useState<number>(1.5)
+  const [compressRatio, setCompressRatio] = useState<number>(50)
   
   // 删除确认对话框
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -318,6 +324,88 @@ export default function ChapterEditorPage() {
       abortControllerRef.current = abort
     } catch (error) {
       console.error('AI优化失败:', error)
+      setAiGenerating(false)
+    }
+  }
+
+  // AI扩写 - 打开参数输入对话框
+  const handleAiExpand = async () => {
+    handleAiMenuClose()
+    setAiRequirement('')
+    setExpandRatio(1.5)
+    setAiPendingAction('expand')
+    setAiRequirementInputOpen(true)
+  }
+
+  // 确认并执行扩写
+  const handleAiExpandConfirm = async () => {
+    setAiRequirementInputOpen(false)
+    setAiDialogTitle('AI扩写章节')
+    setAiDialogOpen(true)
+    setAiGenerating(true)
+    setAiContent('')
+
+    try {
+      const abort = await chapterAPI.aiExpandChapterStream(Number(chapterId), {
+        content: content,
+        expandRatio: expandRatio,
+        requirement: aiRequirement,
+        onChunk: (chunk) => {
+          setAiContent((prev) => prev + chunk)
+        },
+        onComplete: () => {
+          setAiGenerating(false)
+        },
+        onError: (error) => {
+          console.error('AI扩写失败:', error)
+          setAiGenerating(false)
+          setAiContent((prev) => prev + '\n\n[扩写失败]')
+        },
+      })
+      abortControllerRef.current = abort
+    } catch (error) {
+      console.error('AI扩写失败:', error)
+      setAiGenerating(false)
+    }
+  }
+
+  // AI缩写 - 打开参数输入对话框
+  const handleAiCompress = async () => {
+    handleAiMenuClose()
+    setAiRequirement('')
+    setCompressRatio(50)
+    setAiPendingAction('compress')
+    setAiRequirementInputOpen(true)
+  }
+
+  // 确认并执行缩写
+  const handleAiCompressConfirm = async () => {
+    setAiRequirementInputOpen(false)
+    setAiDialogTitle('AI缩写章节')
+    setAiDialogOpen(true)
+    setAiGenerating(true)
+    setAiContent('')
+
+    try {
+      const abort = await chapterAPI.aiCompressChapterStream(Number(chapterId), {
+        content: content,
+        compressRatio: compressRatio,
+        requirement: aiRequirement,
+        onChunk: (chunk) => {
+          setAiContent((prev) => prev + chunk)
+        },
+        onComplete: () => {
+          setAiGenerating(false)
+        },
+        onError: (error) => {
+          console.error('AI缩写失败:', error)
+          setAiGenerating(false)
+          setAiContent((prev) => prev + '\n\n[缩写失败]')
+        },
+      })
+      abortControllerRef.current = abort
+    } catch (error) {
+      console.error('AI缩写失败:', error)
       setAiGenerating(false)
     }
   }
@@ -655,6 +743,28 @@ export default function ChapterEditorPage() {
                   >
                     风格优化
                   </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    startIcon={<ZoomIn />}
+                    onClick={handleAiExpand}
+                    disabled={!content}
+                    sx={{ borderRadius: 2, justifyContent: 'flex-start' }}
+                  >
+                    内容扩写
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    startIcon={<ZoomOut />}
+                    onClick={handleAiCompress}
+                    disabled={!content}
+                    sx={{ borderRadius: 2, justifyContent: 'flex-start' }}
+                  >
+                    内容缩写
+                  </Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -682,6 +792,15 @@ export default function ChapterEditorPage() {
         <MenuItem onClick={handleAiContinue} disabled={!content}>
           <AutoAwesome fontSize="small" sx={{ mr: 1 }} />
           智能续写
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={handleAiExpand} disabled={!content}>
+          <ZoomIn fontSize="small" sx={{ mr: 1 }} />
+          内容扩写
+        </MenuItem>
+        <MenuItem onClick={handleAiCompress} disabled={!content}>
+          <ZoomOut fontSize="small" sx={{ mr: 1 }} />
+          内容缩写
         </MenuItem>
         <Divider />
         <MenuItem onClick={handleAiOptimizeGrammar} disabled={!content}>
@@ -810,7 +929,10 @@ export default function ChapterEditorPage() {
         <DialogTitle>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
             <Typography variant="h6">
-              {aiPendingAction === 'generate' ? 'AI生成章节' : 'AI续写'}
+              {aiPendingAction === 'generate' && 'AI生成章节'}
+              {aiPendingAction === 'continue' && 'AI续写'}
+              {aiPendingAction === 'expand' && 'AI扩写章节'}
+              {aiPendingAction === 'compress' && 'AI缩写章节'}
             </Typography>
             <IconButton size="small" onClick={() => setAiRequirementInputOpen(false)}>
               <Close />
@@ -818,29 +940,80 @@ export default function ChapterEditorPage() {
           </Stack>
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <TextField
-            autoFocus
-            label="需求或提示（可不填）"
-            placeholder="例如：加入更多动作描写、优化读不喜欢的策略等"
-            value={aiRequirement}
-            onChange={(e) => setAiRequirement(e.target.value)}
-            multiline
-            fullWidth
-            minRows={3}
-            maxRows={8}
-            variant="outlined"
-          />
+          <Stack spacing={2}>
+            {/* 扩写比例设置 */}
+            {aiPendingAction === 'expand' && (
+              <FormControl fullWidth>
+                <InputLabel size="small">扩写比例</InputLabel>
+                <Select
+                  value={expandRatio}
+                  label="扩写比例"
+                  onChange={(e) => setExpandRatio(Number(e.target.value))}
+                  size="small"
+                  sx={{ borderRadius: 2 }}
+                >
+                  <MenuItem value={1.5}>1.5個（轻度扩写）</MenuItem>
+                  <MenuItem value={2.0}>2.0個（中度扩写）</MenuItem>
+                  <MenuItem value={2.5}>2.5個（大幅扩写）</MenuItem>
+                  <MenuItem value={3.0}>3.0個（深度扩写）</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+            
+            {/* 缩写比例设置 */}
+            {aiPendingAction === 'compress' && (
+              <FormControl fullWidth>
+                <InputLabel size="small">压缩比例</InputLabel>
+                <Select
+                  value={compressRatio}
+                  label="压缩比例"
+                  onChange={(e) => setCompressRatio(Number(e.target.value))}
+                  size="small"
+                  sx={{ borderRadius: 2 }}
+                >
+                  <MenuItem value={30}>30%（高度精简）</MenuItem>
+                  <MenuItem value={50}>50%（中度精简）</MenuItem>
+                  <MenuItem value={70}>70%（轻度精简）</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+            
+            <TextField
+              autoFocus
+              label="需求或提示（可不填）"
+              placeholder="例如：加入更多动作描写、保留关键对话等"
+              value={aiRequirement}
+              onChange={(e) => setAiRequirement(e.target.value)}
+              multiline
+              fullWidth
+              minRows={3}
+              maxRows={8}
+              variant="outlined"
+            />
+          </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setAiRequirementInputOpen(false)} sx={{ borderRadius: 2 }}>
             取消
           </Button>
           <Button
-            onClick={aiPendingAction === 'generate' ? handleAiGenerateConfirm : handleAiContinueConfirm}
+            onClick={
+              aiPendingAction === 'generate'
+                ? handleAiGenerateConfirm
+                : aiPendingAction === 'continue'
+                ? handleAiContinueConfirm
+                : aiPendingAction === 'expand'
+                ? handleAiExpandConfirm
+                : handleAiCompressConfirm
+            }
             variant="contained"
             sx={{ borderRadius: 2 }}
           >
-            开始{aiPendingAction === 'generate' ? '生成' : '续写'}
+            开始
+            {aiPendingAction === 'generate' && '生成'}
+            {aiPendingAction === 'continue' && '续写'}
+            {aiPendingAction === 'expand' && '扩写'}
+            {aiPendingAction === 'compress' && '缩写'}
           </Button>
         </DialogActions>
       </Dialog>
