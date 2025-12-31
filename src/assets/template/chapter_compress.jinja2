@@ -1,46 +1,51 @@
 {# 章节缩写提示词模板 #}
+【缩写任务】
+原文字数:{% if original_content %}{{ original_content|length }}{% else %}0{% endif %} 字
+目标字数:{% if compress_ratio %}{{ (original_content|length * compress_ratio / 100)|int }}{% else %}{{ (original_content|length * 0.5)|int }}{% endif %} 字
+压缩比例:{% if compress_ratio %}{{ compress_ratio }}%{% else %}50%{% endif %}
+
+【原文】
+{{ original_content }}
+
+【保留优先级】
+P0(必须保留):
+- 核心情节转折点
+- 关键人物对话(推动情节的)
+- 重要伏笔和线索
+
+P1(尽量保留):
+- 主要角色的行为和决策
+- 情节因果关系
+
+P2(可删减):
+- 次要角色的戏份
+- 环境描写、心理描写
+- 过渡性内容
+
 {% if characters %}
 【角色设定】
-以下是本项目的主要角色，请在缩写时保持对这些角色的准确描述：
+以下是本项目的主要角色,请在缩写时保持对这些角色的准确描述:
 
 {% for char in characters %}
-角色名：{{ char.name }}
-{%- if char.basic_info %}
-  基本信息：
-  {%- if char.basic_info.gender %} 性别：{{ char.basic_info.gender }}{% endif %}
-  {%- if char.basic_info.age %}，年龄：{{ char.basic_info.age }}{% endif %}
-  {%- if char.basic_info.occupation %}，职业：{{ char.basic_info.occupation }}{% endif %}
-{% endif %}
-{%- if char.personality and char.personality.traits %}
-  性格特征：{{ char.personality.traits[:3]|join('、') }}
-{% endif %}
+- {{ char.name }}({{ char.role_type }})
+{%- if char.personality and char.personality.get('traits') %}
+  性格特征:{{ char.personality['traits'][:3]|join(',') }}
+{%- endif %}
 
 {% endfor %}
 {% endif %}
 
-【缩写任务】
-请对以下章节内容进行缩写：
+【缩写方法】
+- 删减法:直接删除 P2 内容
+- 概括法:用一句话概括一段描写
+- 合并法:多个场景合并为一个
 
-章节标题：《{{ chapter_title }}》
+【质量要求】
+- 逻辑完整:读者能理解故事脉络
+- 不用"总之"等概括词
+- 保留精华部分的原文
+{%- if requirement %}
+- 额外要求:{{ requirement }}
+{%- endif %}
 
-原始内容：
-{{ original_content }}
-
-【缩写要求】
-- 压缩比例：{% if compress_ratio %}{{ compress_ratio }}%{% else %}50%{% endif %}
-- 保留核心情节：提取主要事件和关键转折点
-- 保留重要人物：保持主要人物关系和角色特点
-- 删减冗余：压缩过多的场景描写、心理描写和次要对话
-- 简化次要情节：对支线情节进行高度概括或删除
-- 保持逻辑完整：确保缩写后的内容仍然逻辑清晰、结构完整
-{% if requirement %}
-- 额外要求：{{ requirement }}
-{% endif %}
-
-【注意事项】
-1. 优先保留推动主线情节发展的内容
-2. 保留关键的人物对话和冲突场景
-3. 确保缩写后读者能理解完整的故事脉络
-4. 直接输出缩写后的完整内容，不要添加任何前言、后记或说明
-5. 使用txt格式，不要包含markdown格式
-6. 不要用"概括"的方式，而是保留精华部分的原文或改写
+直接输出缩写后的完整内容,不要添加任何前言、后记或说明。使用txt格式,不要包含markdown格式。

@@ -1,60 +1,102 @@
+{# 第一部分:故事定位 #}
+{%- if story_progress %}
+【故事进度】第 {{ story_progress.current }}/{{ story_progress.total }} 章 ({{ story_progress.percentage }}%)
+{% endif %}
+
+{# 第二部分:大纲信息(卷-章-节) #}
 {%- if volume_title %}
-【卷】{{ volume_title }}
+【当前卷】{{ volume_title }}
 {%- if volume_description %}
-卷简介：{{ volume_description }}
+卷简介:{{ volume_description }}
 {%- endif %}
 {% endif %}
+
 {%- if chapter_title %}
-【章】{{ chapter_title }}
+【当前章】{{ chapter_title }}
 {%- if chapter_description %}
-章简介：{{ chapter_description }}
+本章任务:{{ chapter_description }}
 {%- endif %}
 {% endif %}
-{%- if characters %}
 
-【角色设定】
-以下是本项目的主要角色，请在创作时保持角色设定的一致性：
-
-{% for char in characters %}
-角色名：{{ char.name }}
-{%- if char.basic_info %}
-{%- set basic = char.basic_info %}
-{%- set info_parts = [] %}
-{%- if basic.get('gender') %}{% set _ = info_parts.append("性别：" + basic['gender']) %}{% endif %}
-{%- if basic.get('age') %}{% set _ = info_parts.append("年龄：" + basic['age']) %}{% endif %}
-{%- if basic.get('occupation') %}{% set _ = info_parts.append("职业：" + basic['occupation']) %}{% endif %}
-{%- if basic.get('category') %}{% set _ = info_parts.append("角色定位：" + basic['category']) %}{% endif %}
-{%- if info_parts %}
-  基本信息：{{ info_parts|join('，') }}
-{%- endif %}
-{%- endif %}
-{%- if char.personality and char.personality.get('traits') %}
-  性格特征：{{ char.personality['traits'][:5]|join('、') }}
-{%- endif %}
-{%- if char.background and char.background.get('summary') %}
-  背景简介：{{ char.background['summary'][:100] }}
-{%- endif %}
-{%- if char.notes %}
-  其他备注：{{ char.notes }}
-{%- endif %}
-
-{% endfor %}
-{%- endif %}
-
-请为章节《{{ chapter_title }}》创作正文内容。
 {%- if section_hints %}
-
-本章要点：
+【章节要点】
 {% for hint in section_hints %}
 {{ loop.index }}. {{ hint.title }}
 {%- if hint.description %}
-   {{ hint.description }}
+   详情:{{ hint.description }}
 {%- endif %}
 {% endfor %}
-{%- endif %}
-{%- if requirement %}
-
-额外要求：{{ requirement }}
 {% endif %}
 
-请直接开始创作，不需要任何前言和后记，只需要正文内容。使用txt格式，不要包含markdown格式。
+{# 第三部分:上下文连贯 #}
+{%- if previous_chapter or next_chapter %}
+【上下文连贯】
+{%- if previous_chapter %}
+前章回顾:
+  标题:《{{ previous_chapter.title }}》
+{%- if previous_chapter.summary %}
+  结尾情况:{{ previous_chapter.summary }}
+{%- endif %}
+{%- endif %}
+
+{%- if next_chapter %}
+下章预告:
+  标题:《{{ next_chapter.title }}》
+  (需为下一章埋下伏笔)
+{%- endif %}
+{% endif %}
+
+{# 第四部分:角色设定(结构化) #}
+{%- if characters %}
+【核心角色】
+以下是本项目的主要角色,请在创作时保持角色设定的一致性:
+
+{% for char in characters %}
+- {{ char.name }}({{ char.role_type }})
+{%- if char.basic_info %}
+  基本信息:
+  {%- if char.basic_info.get('gender') %} 性别:{{ char.basic_info['gender'] }}{%- endif %}
+  {%- if char.basic_info.get('age') %}、年龄:{{ char.basic_info['age'] }}{%- endif %}
+  {%- if char.basic_info.get('occupation') %}、职业:{{ char.basic_info['occupation'] }}{%- endif %}
+{%- endif %}
+{%- if char.personality and char.personality.get('traits') %}
+  性格特征:{{ char.personality['traits'][:5]|join(',') }}
+{%- endif %}
+{%- if char.personality and char.personality.get('behavior_patterns') %}
+  行为模式:{{ char.personality['behavior_patterns']|join(';') }}
+{%- endif %}
+{%- if char.speech_style %}
+  语言风格:{{ char.speech_style }}
+{%- endif %}
+{%- if char.background_summary %}
+  背景简介:{{ char.background_summary }}
+{%- endif %}
+{%- if char.relationships %}
+  关系网络:
+  {%- for rel in char.relationships[:3] %}
+    与{{ rel.name }}:{{ rel.relation }}{%- if rel.description %}({{ rel.description }}){%- endif %}
+  {%- endfor %}
+{%- endif %}
+
+{% endfor %}
+{%- endif %}
+
+{# 第五部分:创作要求 #}
+【创作要求】
+1. 情节推进:完成本章大纲规定的情节点
+2. 节奏控制:开篇吸引→中段推进→结尾留悬念
+3. 人物塑造:展现角色性格,符合设定
+{%- if project_style %}
+4. 文笔风格:{{ project_style }}
+{%- endif %}
+5. 伏笔布局:为后续章节埋下线索
+
+【质量标准】
+- 字数:建议 2000-3000 字
+- 对话比例:30-40%
+- 描写细节:场景、动作、心理
+{%- if requirement %}
+- 额外要求:{{ requirement }}
+{%- endif %}
+
+请直接开始创作,不需要任何前言和后记,只需要正文内容。使用txt格式,不要包含markdown格式。

@@ -1,52 +1,46 @@
 {# 章节扩写提示词模板 #}
+【扩写任务】
+原文字数:{% if original_content %}{{ original_content|length }}{% else %}0{% endif %} 字
+目标字数:{% if expand_ratio %}{{ (original_content|length * expand_ratio)|int }}{% else %}{{ (original_content|length * 1.5)|int }}{% endif %} 字
+扩写比例:{% if expand_ratio %}{{ expand_ratio }}{% else %}1.5{% endif %}倍
+
+【原文】
+{{ original_content }}
+
+【扩写策略】
+优先扩写的部分:
+✓ 关键情节:增加铺垫、转折、悬念
+✓ 人物对话:展现性格、推动情节
+✓ 场景描写:视觉、听觉、触觉细节
+✓ 心理活动:人物内心的挣扎、思考
+
+避免扩写的部分:
+✗ 过渡性内容("他走了过去"等)
+✗ 已经详细的描写
+✗ 无意义的重复
+
 {% if characters %}
 【角色设定】
-以下是本项目的主要角色，请在扩写时保持角色设定的一致性：
+以下是本项目的主要角色,请在扩写时保持角色设定的一致性:
 
 {% for char in characters %}
-角色名：{{ char.name }}
-{%- if char.basic_info %}
-  基本信息：
-  {%- if char.basic_info.gender %} 性别：{{ char.basic_info.gender }}{% endif %}
-  {%- if char.basic_info.age %}，年龄：{{ char.basic_info.age }}{% endif %}
-  {%- if char.basic_info.occupation %}，职业：{{ char.basic_info.occupation }}{% endif %}
-  {%- if char.basic_info.category %}，角色定位：{{ char.basic_info.category }}{% endif %}
-{% endif %}
-{%- if char.personality and char.personality.traits %}
-  性格特征：{{ char.personality.traits[:5]|join('、') }}
-{% endif %}
-{%- if char.background and char.background.summary %}
-  背景简介：{{ char.background.summary[:100] }}
-{% endif %}
-{%- if char.notes %}
-  其他备注：{{ char.notes }}
-{% endif %}
+- {{ char.name }}({{ char.role_type }})
+{%- if char.personality and char.personality.get('traits') %}
+  性格特征:{{ char.personality['traits'][:5]|join(',') }}
+{%- endif %}
+{%- if char.speech_style %}
+  语言风格:{{ char.speech_style }}
+{%- endif %}
 
 {% endfor %}
 {% endif %}
 
-【扩写任务】
-请对以下章节内容进行扩写：
-
-章节标题：《{{ chapter_title }}》
-
-原始内容：
-{{ original_content }}
-
 【扩写要求】
-- 扩写比例：{% if expand_ratio %}{{ expand_ratio }}倍{% else %}1.5-2倍{% endif %}
-- 保持原文的核心情节、人物关系和主题思想不变
-- 丰富细节描写：增加场景描写、人物外貌、动作、心理活动等
-- 扩展对话：适当增加人物对话，展现人物性格和推动情节发展
-- 增强情节：在关键情节点适当展开，增加铺垫和转折
-- 保持原文的风格、语调和叙事节奏
-{% if requirement %}
-- 额外要求：{{ requirement }}
-{% endif %}
+- 自然融入:不显得突兀
+- 保持节奏:不拖沓
+- 符合角色设定
+{%- if requirement %}
+- 额外要求:{{ requirement }}
+{%- endif %}
 
-【注意事项】
-1. 不要改变原文的主要情节走向和结局
-2. 扩写的内容要自然融入，不显得突兀
-3. 保持逻辑连贯，确保前后呼应
-4. 直接输出扩写后的完整内容，不要添加任何前言、后记或说明
-5. 使用txt格式，不要包含markdown格式
+直接输出扩写后的完整内容,不要添加任何前言或后记。使用txt格式,不要包含markdown格式。

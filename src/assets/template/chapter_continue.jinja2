@@ -1,42 +1,59 @@
+【续写任务】
+当前章节:《{{ chapter_title }}》
+{%- if current_word_count %}
+已写字数:{{ current_word_count }} 字
+{%- endif %}
+目标字数:2000-3000 字(建议)
+
+{%- if current_content %}
+【已有内容(最后部分)】
+{{ current_content }}
+{%- endif %}
+
+{%- if section_hints %}
+【情节状态分析】
+当前进度:section 1/{{ section_hints|length }}
+待完成要点:
+{% for hint in section_hints %}
+□ {{ hint.title }}
+{%- if hint.description %} - {{ hint.description }}{%- endif %}
+{% endfor %}
+{% endif %}
+
 {%- if characters %}
 【角色设定】
-以下是本项目的主要角色，请在续写时保持角色设定的一致性：
+以下是本项目的主要角色,请在续写时保持角色设定的一致性:
 
 {% for char in characters %}
-角色名：{{ char.name }}
-{%- if char.basic_info %}
-{%- set basic = char.basic_info %}
-{%- set info_parts = [] %}
-{%- if basic.get('gender') %}{% set _ = info_parts.append("性别：" + basic['gender']) %}{% endif %}
-{%- if basic.get('age') %}{% set _ = info_parts.append("年龄：" + basic['age']) %}{% endif %}
-{%- if basic.get('occupation') %}{% set _ = info_parts.append("职业：" + basic['occupation']) %}{% endif %}
-{%- if basic.get('category') %}{% set _ = info_parts.append("角色定位：" + basic['category']) %}{% endif %}
-{%- if info_parts %}
-  基本信息：{{ info_parts|join('，') }}
-{%- endif %}
-{%- endif %}
+- {{ char.name }}({{ char.role_type }})
 {%- if char.personality and char.personality.get('traits') %}
-  性格特征：{{ char.personality['traits'][:5]|join('、') }}
+  性格特征:{{ char.personality['traits'][:5]|join(',') }}
 {%- endif %}
-{%- if char.background and char.background.get('summary') %}
-  背景简介：{{ char.background['summary'][:100] }}
+{%- if char.personality and char.personality.get('behavior_patterns') %}
+  行为模式:{{ char.personality['behavior_patterns']|join(';') }}
 {%- endif %}
-{%- if char.notes %}
-  其他备注：{{ char.notes }}
+{%- if char.speech_style %}
+  语言风格:{{ char.speech_style }}
 {%- endif %}
 
 {% endfor %}
 {%- endif %}
 
-请为章节《{{ chapter_title }}》续写内容。
-{%- if current_content %}
-
-已有内容的最后部分：
-{{ current_content }}
-{%- endif %}
-{%- if requirement %}
-
-续写要求：{{ requirement }}
+{%- if section_hints %}
+【续写方向】
+接下来应当:
+{% for hint in section_hints[:3] %}
+{{ loop.index }}. 推进情节到:{{ hint.title }}
+{%- if hint.description %} - {{ hint.description }}{%- endif %}
+{% endfor %}
 {% endif %}
 
-请自然地继续故事，保持风格一致。直接开始续写，不需要任何前言。使用txt格式，不要包含markdown格式。
+【续写要求】
+- 自然衔接:风格与已有内容保持一致
+- 避免重复:不重复已提及的内容
+- 推进情节:每 500 字推进一个小情节点
+{%- if requirement %}
+- 额外要求:{{ requirement }}
+{%- endif %}
+
+请自然地继续故事,保持风格一致。直接开始续写,不需要任何前言。使用txt格式,不要包含markdown格式。
