@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite://./data/db.sqlite3"
 
     # 安全配置
-    SECRET_KEY: str = "dev-secret-key-change-in-production-please"
+    SECRET_KEY: str = "1234567890"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
 

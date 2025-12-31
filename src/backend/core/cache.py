@@ -8,6 +8,7 @@ from typing import Optional
 from cachetools import TTLCache
 
 from src.backend.core.logger import logger
+from src.backend.core.security import decrypt_api_key
 from src.features.user.backend.models import UserSetting
 
 
@@ -103,10 +104,15 @@ class ConfigCacheManager:
 
             logger.info(f"成功加载用户配置: user_id={user_id}")
 
+            # 对 api_key 进行解密
+            api_key = settings.get("api_key", "")
+            if api_key:
+                api_key = decrypt_api_key(api_key)
+
             # 构建配置对象
             return UserAIConfig(
                 user_id=user_id,
-                api_key=settings.get("api_key", ""),
+                api_key=api_key,
                 api_base=settings.get("api_base", ""),
                 api_model=settings.get("api_model", "gpt-3.5-turbo"),
                 api_max_tokens=int(settings.get("api_max_tokens", "32000")),

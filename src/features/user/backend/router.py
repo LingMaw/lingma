@@ -12,6 +12,8 @@ from src.backend.core.logger import logger
 from src.backend.core.response import MessageResponse, message_response
 from src.backend.core.security import (
     create_access_token,
+    decrypt_api_key,
+    encrypt_api_key,
     get_password_hash,
     verify_password,
 )
@@ -189,10 +191,17 @@ async def get_user_settings(user_id: CurrentUserId):
         user_id: 当前用户ID（从JWT中解析）
 
     Returns:
-        dict[str, str]: 用户设置字典
+        dict[str, str]: 用户设置字典（API密钥已解密）
     """
     settings = await UserSetting.filter(user_id=user_id).all()
-    return {setting.key: setting.value for setting in settings}
+    result = {}
+    for setting in settings:
+        # 对 api_key 进行解密
+        if setting.key == "api_key":
+            result[setting.key] = decrypt_api_key(setting.value)
+        else:
+            result[setting.key] = setting.value
+    return result
 
 
 @router.get("/settings/{key}", response_model=str)
@@ -205,7 +214,7 @@ async def get_user_setting(key: str, user_id: CurrentUserId):
         user_id: 当前用户ID（从JWT中解析）
 
     Returns:
-        str: 用户设置值
+        str: 用户设置值（API密钥已解密）
 
     Raises:
         AuthenticationError: 设置不存在
@@ -216,6 +225,10 @@ async def get_user_setting(key: str, user_id: CurrentUserId):
         if key in DEFAULT_USER_SETTINGS:
             return DEFAULT_USER_SETTINGS[key]
         raise AuthenticationError(f"设置 {key} 不存在")
+    
+    # 对 api_key 进行解密
+    if key == "api_key":
+        return decrypt_api_key(setting.value)
     
     return setting.value
 
@@ -247,6 +260,10 @@ async def update_user_setting(key: str, request: Request, user_id: CurrentUserId
     # 验证设置键是否有效
     if key not in DEFAULT_USER_SETTINGS:
         raise AuthenticationError(f"无效的设置项: {key}")
+    
+    # 对 api_key 进行加密存储
+    if key == "api_key":
+        value = encrypt_api_key(value)
         
     await UserSetting.update_or_create(
         defaults={"value": value},
@@ -257,7 +274,7 @@ async def update_user_setting(key: str, request: Request, user_id: CurrentUserId
     # 清除缓存，确保下次获取最新配置
     await config_cache_manager.invalidate_user_config(user_id)
     
-    logger.info(f"用户设置已更新: {key} = {value} (用户ID: {user_id})")
+    logger.info(f"用户设置已更新: {key} (用户ID: {user_id})")
     return message_response(f"设置 {key} 已更新")
 
 
