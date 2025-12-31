@@ -46,10 +46,10 @@ class ProjectAIService:
             
             # 准备模板上下文
             context = {
-                "title": novel_title,
-                "genre": novel_genre,
-                "style": novel_style,
-                "description": project.description or "",
+                "novel_title": novel_title,
+                "novel_genre": novel_genre,
+                "novel_style": novel_style,
+                "novel_description": project.description or "",
                 "characters": characters,
                 "requirement": requirement,
             }
@@ -173,9 +173,9 @@ class ProjectAIService:
             
             # 准备模板上下文
             context = {
-                "title": novel_title,
-                "current_content": context_content,
-                "content_length": len(context_content),
+                "novel_title": novel_title,
+                "context_content": context_content,
+                "context_length": len(context_content),
                 "characters": characters,
                 "requirement": requirement,
             }
