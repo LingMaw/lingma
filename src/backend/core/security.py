@@ -109,13 +109,16 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
 
 def _get_encryption_key() -> bytes:
     """
-    从 settings.SECRET_KEY 派生标准的 256 位加密密钥
+    获取数据加密密钥
+
+    优先使用 ENCRYPTION_KEY，如未配置则使用 SECRET_KEY 派生（向后兼容）
 
     Returns:
         bytes: 32 字节的加密密钥
     """
-    # 使用 SHA-256 哈希确保获得标准的 32 字节密钥
-    return hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
+    # 优先使用独立的 ENCRYPTION_KEY
+    encryption_key = settings.ENCRYPTION_KEY or settings.SECRET_KEY
+    return hashlib.sha256(encryption_key.encode("utf-8")).digest()
 
 
 def encrypt_api_key(api_key: str) -> str:

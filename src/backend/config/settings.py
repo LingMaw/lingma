@@ -46,7 +46,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite://./data/db.sqlite3"
 
     # 安全配置
-    SECRET_KEY: str = "1234567890"
+    SECRET_KEY: str = "1234567890"  # JWT 签名密钥
+    ENCRYPTION_KEY: str = ""  # 数据加密密钥（独立于 SECRET_KEY）
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
 
@@ -68,44 +69,64 @@ class Settings(BaseSettings):
     def ensure_security(self):
         """
         安全检查与自动修复
-        如果是生产环境且使用的是默认密钥，则自动生成新密钥并写入 .env.local
+        1. 检查 SECRET_KEY（JWT 签名）
+        2. 检查 ENCRYPTION_KEY（数据加密）
         """
-        default_key = "dev-secret-key-change-in-production-please"
+        default_secret_key = "dev-secret-key-change-in-production-please"
+        is_production = self.ENVIRONMENT == "production" or not self.DEBUG
 
-        # 检查条件：密钥未修改 且 (环境为生产 或 显式要求)
-        # 为了简化 Windows 部署体验，只要是默认密钥，我们就尝试生成
-        # 但在开发环境下(DEBUG=True)，我们允许使用默认密钥以避免 git 脏文件
-
-        if default_key == self.SECRET_KEY:
-            if self.ENVIRONMENT == "production" or not self.DEBUG:
+        # 检查 SECRET_KEY
+        if default_secret_key == self.SECRET_KEY:
+            if is_production:
                 self._regenerate_secret()
             else:
                 logger.warning("⚠️ 当前正在使用不安全的默认 SECRET_KEY (仅限开发环境)")
 
+        # 检查 ENCRYPTION_KEY（必须配置）
+        if not self.ENCRYPTION_KEY:
+            if is_production:
+                self._regenerate_encryption_key()
+            else:
+                logger.warning("⚠️ 未配置 ENCRYPTION_KEY，数据加密功能将使用 SECRET_KEY 派生（不推荐）")
+
     def _regenerate_secret(self):
-        """生成新的随机密钥并写入配置文件"""
+        """生成新的 SECRET_KEY 并写入配置文件"""
         new_secret = secrets.token_hex(32)
         env_file = Path(".env.local")
 
-        logger.info("🔐 检测到不安全的默认密钥，正在自动生成新密钥...")
+        logger.info("🔐 检测到不安全的默认 SECRET_KEY，正在自动生成...")
 
         try:
-            # 简单的追加/替换逻辑
-            # 注意：这里做了一个简化的处理，直接追加覆盖
-            # 在 .env 格式中，后面的键值对会覆盖前面的
-            new_line = f'\n# Auto-generated secure key\nSECRET_KEY="{new_secret}"\n'
-
+            new_line = f'\n# Auto-generated JWT secret key\nSECRET_KEY="{new_secret}"\n'
             with env_file.open("a", encoding="utf-8") as f:
                 f.write(new_line)
 
-            # 更新内存中的配置
             self.SECRET_KEY = new_secret
-            logger.success(f"✅ 已生成安全密钥并写入 {env_file.absolute()}")
+            logger.success(f"✅ 已生成 SECRET_KEY 并写入 {env_file.absolute()}")
 
         except Exception as e:
             logger.error(f"❌ 无法写入配置文件: {e}")
-            # 内存中更新，至少保证本次运行安全
             self.SECRET_KEY = new_secret
+
+    def _regenerate_encryption_key(self):
+        """生成新的 ENCRYPTION_KEY 并写入配置文件"""
+        new_key = secrets.token_hex(32)
+        env_file = Path(".env.local")
+
+        logger.info("🔐 未配置 ENCRYPTION_KEY，正在自动生成...")
+
+        try:
+            new_line = f'\n# Auto-generated data encryption key\nENCRYPTION_KEY="{new_key}"\n'
+            with env_file.open("a", encoding="utf-8") as f:
+                f.write(new_line)
+
+            self.ENCRYPTION_KEY = new_key
+            logger.success(f"✅ 已生成 ENCRYPTION_KEY 并写入 {env_file.absolute()}")
+            logger.warning("⚠️ 请备份此密钥！丢失后将无法解密已加密的数据")
+
+        except Exception as e:
+            logger.error(f"❌ 无法写入配置文件: {e}")
+            self.ENCRYPTION_KEY = new_key
 
 
 # 初始化配置

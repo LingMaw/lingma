@@ -138,15 +138,19 @@ else
     # 生成随机密钥
     if command -v openssl &> /dev/null; then
         secret_key=$(openssl rand -hex 32)
+        encryption_key=$(openssl rand -hex 32)
         # macOS 和 Linux 的 sed 语法不同
         if [[ "$OSTYPE" == "darwin"* ]]; then
             sed -i '' "s/your-secret-key-change-in-production-use-openssl-rand-hex-32/$secret_key/" .env
+            sed -i '' "s/ENCRYPTION_KEY=\"\"/ENCRYPTION_KEY=\"$encryption_key\"/" .env
         else
             sed -i "s/your-secret-key-change-in-production-use-openssl-rand-hex-32/$secret_key/" .env
+            sed -i "s/ENCRYPTION_KEY=\"\"/ENCRYPTION_KEY=\"$encryption_key\"/" .env
         fi
-        print_success "已生成随机 SECRET_KEY"
+        print_success "已生成随机 SECRET_KEY 和 ENCRYPTION_KEY"
+        print_warning "⚠️  请备份 ENCRYPTION_KEY！丢失后将无法解密已加密数据"
     else
-        print_warning "未找到 openssl，请手动设置 SECRET_KEY"
+        print_warning "未找到 openssl，请手动设置 SECRET_KEY 和 ENCRYPTION_KEY"
     fi
     
     # 更新项目信息
