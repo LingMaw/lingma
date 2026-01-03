@@ -15,6 +15,7 @@ from src.features.novel_outline.backend.models import OutlineNode
 from src.features.novel_outline.backend.schemas import (
     AIOutlineGenerateRequest,
     OutlineContinueRequest,
+    OutlineMetaResponse,
     OutlineNodeCreate,
     OutlineNodeReorder,
     OutlineNodeResponse,
@@ -30,6 +31,7 @@ from src.features.novel_outline.backend.services.ai_outline_service import (
 from src.features.novel_outline.backend.services.outline_continue_service import (
     OutlineContinueService,
 )
+from src.features.novel_project.backend.models import NovelProject
 
 router = APIRouter(prefix="/outline", tags=["大纲系统"])
 
@@ -365,6 +367,51 @@ async def generate_outline_with_ai(
             "Connection": "keep-alive",
         },
     )
+
+
+@router.get("/projects/{project_id}/meta", response_model=OutlineMetaResponse)
+async def get_outline_meta(
+    project_id: int = Path(..., description="项目ID"),
+):
+    """
+    获取大纲的元信息（meta）
+    包括世界观、核心矛盾、主题升华、情节结构、关键转折点、角色弧光等
+    """
+    def _validate_project(project):
+        if not project:
+            raise APIError(
+                code="PROJECT_NOT_FOUND",
+                message="项目不存在",
+                status_code=404,
+            )
+    
+    try:
+        project = await NovelProject.get_or_none(id=project_id)
+        _validate_project(project)
+        
+        # 从 metadata 中提取 outline_meta
+        metadata = project.metadata or {}
+        outline_meta = metadata.get("outline_meta")
+        
+        if outline_meta:
+            return {
+                "meta": outline_meta,
+                "has_meta": True,
+            }
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"获取大纲meta信息失败: {e}")
+        raise APIError(
+            code="FETCH_FAILED",
+            message="获取大纲meta信息失败",
+            status_code=500,
+        ) from e
+    return {
+            "meta": None,
+            "has_meta": False,
+        }
+    
 
 
 @router.get("/projects/{project_id}/export/markdown")

@@ -77,6 +77,11 @@ class AIOutlineService:
             
             outline_data = AIOutlineService._parse_outline_response(full_response)
             
+            # 保存meta信息到项目
+            if outline_data.get("meta"):
+                yield f"data: {json.dumps({'type': 'status', 'message': '保存元信息...'}, ensure_ascii=False)}\n\n"
+                await AIOutlineService._save_outline_meta(project_id, outline_data["meta"])
+            
             # 清空现有大纲
             yield f"data: {json.dumps({'type': 'status', 'message': '清理现有大纲...'}, ensure_ascii=False)}\n\n"
             await OutlineNode.filter(project_id=project_id).delete()
@@ -257,11 +262,12 @@ class AIOutlineService:
         """
         解析AI返回的大纲数据
         支持从Markdown代码块中提取JSON
+        支持新的meta字段(向后兼容)
         """
         try:
             # 清理思维链标记
             response = response.replace("[REASONING]", "").replace("[/REASONING]", "")
-            
+                
             # 尝试从markdown代码块中提取JSON
             if "```json" in response:
                 start = response.find("```json") + 7
@@ -273,7 +279,7 @@ class AIOutlineService:
                 json_str = response[start:end].strip()
             else:
                 json_str = response.strip()
-            
+                
             # 清理JSON字符串
             import re
             # 移除注释 (// 和 /* */)
@@ -281,27 +287,88 @@ class AIOutlineService:
             json_str = re.sub(r"/\*.*?\*/", "", json_str, flags=re.DOTALL)
             # 移除尾随逗号
             json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
-            # 移除控制字符（保留换行和制表符）
+            # 移除控制字符(保留换行和制表符)
             json_str = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", json_str)
-            
+                
             logger.debug(f"提取的JSON字符串: {json_str[:500]}...")  # 记录前500字符
-            
+                
             # 解析JSON
             data = json.loads(json_str)
-            
+                
             # 验证数据结构
             if "volumes" not in data or not isinstance(data["volumes"], list):
-                raise ValueError("无效的大纲格式：缺少volumes字段")
-            
+                raise ValueError("无效的大纲格式:缺少volumes字段")
+                
+            # 处理meta字段(向后兼容)
+            if "meta" not in data:
+                logger.info("AI未返回meta字段,使用默认值")
+                data["meta"] = {
+                    "worldview": "",
+                    "core_conflicts": [],
+                    "theme_evolution": "",
+                    "plot_structure": "",
+                    "key_turning_points": [],
+                    "character_arcs": {},
+                }
+            else:
+                # 验证meta字段完整性,缺失的使用默认值
+                meta = data["meta"]
+                if "worldview" not in meta:
+                    meta["worldview"] = ""
+                if "core_conflicts" not in meta:
+                    meta["core_conflicts"] = []
+                if "theme_evolution" not in meta:
+                    meta["theme_evolution"] = ""
+                if "plot_structure" not in meta:
+                    meta["plot_structure"] = ""
+                if "key_turning_points" not in meta:
+                    meta["key_turning_points"] = []
+                if "character_arcs" not in meta:
+                    meta["character_arcs"] = {}
+                    
+                # 记录描述长度(用于质量评估)
+                worldview_len = len(meta["worldview"])
+                theme_len = len(meta["theme_evolution"])
+                logger.info(f"Meta字段质量: worldview={worldview_len}字, theme_evolution={theme_len}字")
+                    
+                if worldview_len < 100:
+                    logger.warning("世界观描述过短,建议增加详细程度")
+                if theme_len < 100:
+                    logger.warning("主题升华描述过短,建议增加详细程度")
+                
+            # 验证各层级描述长度(记录警告但不阻塞)
+            for vol_idx, volume in enumerate(data.get("volumes", [])):
+                vol_desc_len = len(volume.get("description", ""))
+                if vol_desc_len < 100:
+                    logger.warning(f"第{vol_idx + 1}卷描述过短({vol_desc_len}字),建议200-400字")
+                    
+                for chap_idx, chapter in enumerate(volume.get("chapters", [])):
+                    chap_desc_len = len(chapter.get("description", ""))
+                    if chap_desc_len < 80:
+                        logger.warning(f"第{vol_idx + 1}卷第{chap_idx + 1}章描述过短({chap_desc_len}字),建议150-300字")
+                        
+                    for sec_idx, section in enumerate(chapter.get("sections", [])):
+                        sec_desc_len = len(section.get("description", ""))
+                        if sec_desc_len < 50:
+                            logger.warning(f"第{vol_idx + 1}卷第{chap_idx + 1}章第{sec_idx + 1}节描述过短({sec_desc_len}字),建议100-200字")
+                
         except json.JSONDecodeError as e:
             logger.error(f"解析大纲JSON失败: {e}")
             logger.error(f"提取的JSON字符串: {json_str if 'json_str' in locals() else '未提取'}")
             logger.debug(f"原始响应: {response}")
             # 返回默认结构
             return {
+                "meta": {
+                    "worldview": "",
+                    "core_conflicts": [],
+                    "theme_evolution": "",
+                    "plot_structure": "",
+                    "key_turning_points": [],
+                    "character_arcs": {},
+                },
                 "volumes": [
                     {
-                        "title": "第一卷：起始",
+                        "title": "第一卷:起始",
                         "description": "故事的开端",
                         "chapters": [
                             {
@@ -375,6 +442,36 @@ class AIOutlineService:
         
         logger.info(f"批量创建大纲节点完成，共创建 {created_count} 个节点")
         return created_count
+
+    @staticmethod
+    async def _save_outline_meta(project_id: int, meta: Dict[str, Any]) -> None:
+        """
+        保存大纲元信息到项目的metadata字段
+        
+        Args:
+            project_id: 项目ID
+            meta: 大纲元信息
+        """
+        try:
+            project = await NovelProject.get_or_none(id=project_id)
+            if not project:
+                logger.error(f"项目 {project_id} 不存在，无法保存meta信息")
+                return
+            
+            # 获取现有metadata或创建新的
+            metadata = project.metadata or {}
+            
+            # 存储outline_meta
+            metadata["outline_meta"] = meta
+            
+            # 保存到数据库
+            project.metadata = metadata
+            await project.save()
+            
+            logger.info(f"成功保存大纲meta信息到项目 {project_id}")
+            
+        except Exception as e:
+            logger.error(f"保存大纲meta信息失败: {e}")
 
 
 class OutlineExportService:

@@ -9,6 +9,9 @@ export type OutlineNodeResponse = components['schemas']['OutlineNodeResponse']
 export type OutlineNodeCreate = components['schemas']['OutlineNodeCreate']
 export type OutlineNodeUpdate = components['schemas']['OutlineNodeUpdate']
 export type OutlineNodeReorder = components['schemas']['OutlineNodeReorder']
+export type OutlineMetaResponse = components['schemas']['OutlineMetaResponse']
+export type OutlineMeta = components['schemas']['OutlineMeta']
+export type KeyTurningPoint = components['schemas']['KeyTurningPoint']
 
 // 节点类型枚举
 export type NodeType = 'volume' | 'chapter' | 'section'

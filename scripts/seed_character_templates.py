@@ -13,9 +13,9 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from tortoise import Tortoise
+
 from src.backend.config.database import TORTOISE_ORM
 from src.features.character.backend.models import CharacterTemplate
-
 
 # 预定义的角色模板
 TEMPLATES = [
@@ -227,7 +227,7 @@ async def seed_templates():
         for template_data in TEMPLATES:
             # 检查是否已存在同名模板
             existing = await CharacterTemplate.filter(
-                name=template_data["name"]
+                name=template_data["name"],
             ).first()
             if existing:
                 print(f"跳过已存在的模板: {template_data['name']}")

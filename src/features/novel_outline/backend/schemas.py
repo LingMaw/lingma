@@ -3,7 +3,7 @@
 """
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -89,3 +89,36 @@ class OutlineContinueRequest(BaseModel):
 
     chapter_count: int = Field(..., ge=1, le=100, description="续写章节数")
     additional_context: Optional[str] = Field("", description="额外上下文/指令")
+
+
+# Meta 相关 Schema
+class KeyTurningPoint(BaseModel):
+    """关键转折点"""
+
+    position: str = Field(..., description="转折点位置，如“第X卷第Y章”")
+    description: str = Field(..., description="转折点发生的具体事件")
+    impact: str = Field(..., description="对后续故事的影响")
+
+
+class OutlineMeta(BaseModel):
+    """大纲元信息"""
+
+    worldview: str = Field(default="", description="世界观详细描述")
+    core_conflicts: List[str] = Field(default_factory=list, description="核心矛盾列表")
+    theme_evolution: str = Field(default="", description="主题升华路径")
+    plot_structure: str = Field(default="", description="情节结构说明")
+    key_turning_points: List[KeyTurningPoint] = Field(default_factory=list, description="关键转折点")
+    character_arcs: Dict[str, str] = Field(default_factory=dict, description="角色成长弧光")
+
+    class Config:
+        from_attributes = True
+
+
+class OutlineMetaResponse(BaseModel):
+    """大纲元信息响应"""
+
+    meta: Optional[OutlineMeta] = Field(None, description="大纲元信息")
+    has_meta: bool = Field(default=False, description="是否包含元信息")
+
+    class Config:
+        from_attributes = True

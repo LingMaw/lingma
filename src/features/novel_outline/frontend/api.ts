@@ -295,4 +295,14 @@ export const outlineAPI = {
       throw error
     }
   },
+
+  /**
+   * 获取项目大纲元信息
+   */
+  async getOutlineMeta(projectId: number) {
+    const { data } = await httpClient.get(
+      `/novels/outline/projects/${projectId}/meta`
+    )
+    return data
+  },
 }

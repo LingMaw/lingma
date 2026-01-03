@@ -38,6 +38,7 @@ import type { OutlineNodeResponse, OutlineTreeNode, NodeType } from '../types'
 import OutlineNodeEditor from '../components/OutlineNodeEditor'
 import AIOutlineGenerator from '../components/AIOutlineGenerator'
 import ContinueOutlineGenerator from '../components/ContinueOutlineGenerator'
+import OutlineMetaViewer from '../components/OutlineMetaViewer'
 
 export default function OutlinePage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -53,6 +54,7 @@ export default function OutlinePage() {
   const [creatingType, setCreatingType] = useState<NodeType | null>(null)
   const [aiGeneratorOpen, setAiGeneratorOpen] = useState(false)
   const [continueGeneratorOpen, setContinueGeneratorOpen] = useState(false)
+  const [metaViewerOpen, setMetaViewerOpen] = useState(false)
 
   // 加载大纲节点
   useEffect(() => {
@@ -433,6 +435,16 @@ export default function OutlinePage() {
           </Typography>
         </Stack>
         <Stack direction="row" spacing={1}>
+          {/* 元信息按钮 */}
+          <Button
+            variant={metaViewerOpen ? 'contained' : 'outlined'}
+            startIcon={<InfoOutlined />}
+            onClick={() => setMetaViewerOpen(!metaViewerOpen)}
+            sx={{ borderRadius: 2 }}
+          >
+            {metaViewerOpen ? '隐藏元信息' : '显示元信息'}
+          </Button>
+          
           {/* AI生成按钮 */}
           <Button
             variant="outlined"
@@ -483,6 +495,13 @@ export default function OutlinePage() {
           </Button>
         </Stack>
       </Stack>
+
+      {/* 元信息面板 */}
+      {metaViewerOpen && (
+        <Box sx={{ mb: 3 }}>
+          <OutlineMetaViewer projectId={Number(projectId)} />
+        </Box>
+      )}
 
       {/* 大纲树 */}
       {treeData.length === 0 ? (

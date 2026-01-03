@@ -25,6 +25,9 @@ class NovelProject(models.Model):
     chapter_ids = fields.JSONField(default=list, description="章节ID列表")
     use_chapter_system = fields.BooleanField(default=False, description="是否使用章节系统")
     
+    # 元数据字段（用于存储大纲meta等扩展信息）
+    metadata = fields.JSONField(default=dict, description="元数据（JSON格式）")
+    
     # 关联用户
     user_id = fields.BigIntField(description="创建用户ID")
     
