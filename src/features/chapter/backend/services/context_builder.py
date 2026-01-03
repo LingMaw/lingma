@@ -10,6 +10,7 @@ from loguru import logger
 from src.features.chapter.backend.models import Chapter
 from src.features.character.backend.models import Character, CharacterRelation
 from src.features.novel_outline.backend.models import OutlineNode
+from src.features.novel_project.backend.models import NovelProject
 
 
 class ContextBuilder:
@@ -53,7 +54,10 @@ class ContextBuilder:
 
             # 项目信息
             "project_genre": str,
-            "project_style": str
+            "project_style": str,
+
+            # 大纲元数据
+            "outline_meta": dict | None  # 包含世界观、核心矛盾、主题升华、角色弧光等
         }
         """
         context = {}
@@ -127,6 +131,11 @@ class ContextBuilder:
             chapter.project_id,
         )
 
+        # 获取大纲元数据
+        context["outline_meta"] = await ContextBuilder._get_outline_meta(
+            chapter.project_id,
+        )
+
         return context
 
     @staticmethod
@@ -182,7 +191,36 @@ class ContextBuilder:
             chapter.project_id,
         )
 
+        # 获取大纲元数据
+        context["outline_meta"] = await ContextBuilder._get_outline_meta(
+            chapter.project_id,
+        )
+
         return context
+
+    @staticmethod
+    async def _get_outline_meta(project_id: int) -> dict[str, Any] | None:
+        """
+        获取项目的大纲元数据
+        
+        Returns:
+            大纲元数据字典，如果不存在则返回None
+        """
+        try:
+            project = await NovelProject.get_or_none(id=project_id)
+            if not project or not project.metadata:
+                return None
+            
+            outline_meta = project.metadata.get("outline_meta")
+            if not outline_meta:
+                return None
+            
+            logger.debug(f"成功获取项目 {project_id} 的大纲元数据")
+            
+        except Exception as e:
+            logger.warning(f"获取大纲元数据失败: {e}")
+            return None
+        return outline_meta
 
     @staticmethod
     async def _get_previous_chapter(chapter: Chapter) -> dict[str, Any] | None:

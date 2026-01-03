@@ -3,6 +3,32 @@
 【故事进度】第 {{ story_progress.current }}/{{ story_progress.total }} 章 ({{ story_progress.percentage }}%)
 {% endif %}
 
+{# 第一点五部分:大纲统筹信息(世界观、主题、核心矛盾) #}
+{%- if outline_meta %}
+【故事统筹】
+{%- if outline_meta.get('worldview') %}
+世界观设定:
+{{ outline_meta['worldview'] }}
+{% endif %}
+
+{%- if outline_meta.get('core_conflicts') %}
+核心矛盾:
+{% for conflict in outline_meta['core_conflicts'] %}
+- {{ conflict }}
+{% endfor %}
+{% endif %}
+
+{%- if outline_meta.get('theme_evolution') %}
+主题升华路径:
+{{ outline_meta['theme_evolution'] }}
+{% endif %}
+
+{%- if outline_meta.get('plot_structure') %}
+情节结构:
+{{ outline_meta['plot_structure'] }}
+{% endif %}
+{% endif %}
+
 {# 第二部分:大纲信息(卷-章-节) #}
 {%- if volume_title %}
 【当前卷】{{ volume_title }}
@@ -77,6 +103,9 @@
     与{{ rel.name }}:{{ rel.relation }}{%- if rel.description %}({{ rel.description }}){%- endif %}
   {%- endfor %}
 {%- endif %}
+{%- if outline_meta and outline_meta.get('character_arcs') and outline_meta['character_arcs'].get(char.name) %}
+  成长弧光:{{ outline_meta['character_arcs'][char.name] }}
+{%- endif %}
 
 {% endfor %}
 {%- endif %}
@@ -86,10 +115,19 @@
 1. 情节推进:完成本章大纲规定的情节点
 2. 节奏控制:开篇吸引→中段推进→结尾留悬念
 3. 人物塑造:展现角色性格,符合设定
+{%- if outline_meta and outline_meta.get('character_arcs') %}
+   - 注意角色成长弧光的体现
+{%- endif %}
 {%- if project_style %}
 4. 文笔风格:{{ project_style }}
 {%- endif %}
 5. 伏笔布局:为后续章节埋下线索
+{%- if outline_meta and outline_meta.get('key_turning_points') %}
+6. 关键转折:注意以下重要转折点
+{% for point in outline_meta['key_turning_points'] %}
+   - {{ point.position }}:{{ point.description }}
+{% endfor %}
+{%- endif %}
 
 【质量标准】
 - 字数:建议 2000-3000 字
