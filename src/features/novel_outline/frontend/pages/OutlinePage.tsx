@@ -13,6 +13,8 @@ import {
   IconButton,
   Chip,
   alpha,
+  Collapse,
+  Divider,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -24,6 +26,9 @@ import {
   ArrowBack,
   AutoAwesome as AIIcon,
   FileDownload as ExportIcon,
+  InfoOutlined,
+  KeyboardArrowDown,
+  KeyboardArrowUp,
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { containerVariants, itemVariants } from '@/frontend/core/animation'
@@ -41,6 +46,7 @@ export default function OutlinePage() {
   const [treeData, setTreeData] = useState<OutlineTreeNode[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
+  const [detailExpandedIds, setDetailExpandedIds] = useState<Set<number>>(new Set())
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingNode, setEditingNode] = useState<OutlineNodeResponse | null>(null)
   const [parentNode, setParentNode] = useState<OutlineNodeResponse | null>(null)
@@ -124,6 +130,18 @@ export default function OutlinePage() {
     } catch (error) {
       console.error('更新展开状态失败:', error)
     }
+  }
+
+  // 切换节点详细内容展开状态
+  const toggleDetailExpand = (nodeId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    const newExpanded = new Set(detailExpandedIds)
+    if (newExpanded.has(nodeId)) {
+      newExpanded.delete(nodeId)
+    } else {
+      newExpanded.add(nodeId)
+    }
+    setDetailExpandedIds(newExpanded)
   }
 
   // 创建节点
@@ -214,6 +232,7 @@ export default function OutlinePage() {
   // 渲染树节点
   const renderNode = (node: OutlineTreeNode, level: number = 0) => {
     const isExpanded = expandedIds.has(node.id)
+    const isDetailExpanded = detailExpandedIds.has(node.id)
     const hasChildren = node.children.length > 0
 
     return (
@@ -221,75 +240,158 @@ export default function OutlinePage() {
         <Paper
           component={motion.div}
           variants={itemVariants}
+          onClick={(e) => toggleDetailExpand(node.id, e)}
           sx={{
             p: 1.5,
             mb: 1,
             display: 'flex',
-            alignItems: 'center',
-            gap: 1,
+            flexDirection: 'column',
+            gap: 0,
             borderRadius: 2,
             bgcolor: (theme) => alpha(theme.palette.background.paper, 0.6),
             backdropFilter: 'blur(20px)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease-in-out',
             '&:hover': {
               bgcolor: (theme) => alpha(theme.palette.action.hover, 0.1),
+              transform: 'translateY(-2px)',
             },
+            ...(isDetailExpanded && {
+              bgcolor: (theme) => alpha(theme.palette.action.selected, 0.05),
+              boxShadow: (theme) => `0 4px 20px ${alpha(theme.palette.common.black, 0.1)}`,
+            }),
           }}
         >
-          {/* 展开/折叠按钮 */}
-          {hasChildren && (
-            <IconButton size="small" onClick={() => toggleExpand(node.id)}>
-              {isExpanded ? <ExpandMore /> : <ChevronRight />}
-            </IconButton>
-          )}
-          {!hasChildren && <Box sx={{ width: 40 }} />}
+          <Stack direction="row" alignItems="center" gap={1}>
+            {/* 展开/折叠按钮 */}
+            {hasChildren && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleExpand(node.id)
+                }}
+              >
+                {isExpanded ? <ExpandMore /> : <ChevronRight />}
+              </IconButton>
+            )}
+            {!hasChildren && <Box sx={{ width: 40 }} />}
 
-          {/* 节点图标 */}
-          <Box sx={{ color: 'text.secondary' }}>{getNodeIcon(node.node_type)}</Box>
+            {/* 节点图标 */}
+            <Box sx={{ color: 'text.secondary' }}>{getNodeIcon(node.node_type)}</Box>
 
-          {/* 节点信息 */}
-          <Stack direction="row" spacing={1} sx={{ flex: 1, alignItems: 'center' }}>
-            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-              {node.title}
-            </Typography>
-            <Chip
-              label={getNodeTypeLabel(node.node_type)}
-              size="small"
-              color={
-                node.node_type === 'volume'
-                  ? 'primary'
-                  : node.node_type === 'chapter'
-                    ? 'secondary'
-                    : 'default'
-              }
-              sx={{ height: 20, fontSize: '0.7rem' }}
-            />
-          </Stack>
+            {/* 节点信息 */}
+            <Stack direction="row" spacing={1} sx={{ flex: 1, alignItems: 'center' }}>
+              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                {node.title}
+              </Typography>
+              <Chip
+                label={getNodeTypeLabel(node.node_type)}
+                size="small"
+                color={
+                  node.node_type === 'volume'
+                    ? 'primary'
+                    : node.node_type === 'chapter'
+                      ? 'secondary'
+                      : 'default'
+                }
+                sx={{ height: 20, fontSize: '0.7rem' }}
+              />
+            </Stack>
 
-          {/* 操作按钮 */}
-          <Stack direction="row" spacing={0.5}>
-            {/* 添加子节点按钮 */}
-            {node.node_type !== 'section' && (
+            {/* 操作按钮 */}
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              {/* 详情切换按钮 */}
+              <IconButton 
+                size="small" 
+                onClick={(e) => toggleDetailExpand(node.id, e)}
+                sx={{ color: isDetailExpanded ? 'primary.main' : 'text.secondary' }}
+              >
+                {isDetailExpanded ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+              </IconButton>
+
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 16, my: 'auto' }} />
+
+              {/* 添加子节点按钮 */}
+              {node.node_type !== 'section' && (
+                <Button
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCreate(
+                      node.node_type === 'volume' ? 'chapter' : 'section',
+                      node
+                    )
+                  }}
+                >
+                  添加{node.node_type === 'volume' ? '章' : '节'}
+                </Button>
+              )}
+
               <Button
                 size="small"
-                startIcon={<AddIcon />}
-                onClick={() =>
-                  handleCreate(
-                    node.node_type === 'volume' ? 'chapter' : 'section',
-                    node
-                  )
-                }
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleEdit(node)
+                }}
               >
-                添加{node.node_type === 'volume' ? '章' : '节'}
+                编辑
               </Button>
-            )}
-
-            <Button size="small" onClick={() => handleEdit(node)}>
-              编辑
-            </Button>
-            <Button size="small" color="error" onClick={() => handleDelete(node.id)}>
-              删除
-            </Button>
+              <Button
+                size="small"
+                color="error"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDelete(node.id)
+                }}
+              >
+                删除
+              </Button>
+            </Stack>
           </Stack>
+
+          {/* 详细内容区域 */}
+          <Collapse in={isDetailExpanded} timeout="auto" unmountOnExit>
+            <Box
+              sx={{
+                mt: 1.5,
+                pt: 1.5,
+                borderTop: '1px solid',
+                borderColor: (theme) => alpha(theme.palette.divider, 0.1),
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
+                  >
+                    <InfoOutlined sx={{ fontSize: 14 }} />
+                    详细描述
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      color: 'text.primary',
+                      lineHeight: 1.6,
+                      pl: 0.5,
+                    }}
+                  >
+                    {node.description || (
+                      <Typography component="span" variant="body2" sx={{ fontStyle: 'italic', color: 'text.disabled' }}>
+                        暂无描述内容
+                      </Typography>
+                    )}
+                  </Typography>
+                </Box>
+                
+                {/* 如果将来有更多字段可以在这里添加 */}
+              </Stack>
+            </Box>
+          </Collapse>
         </Paper>
 
         {/* 渲染子节点 */}

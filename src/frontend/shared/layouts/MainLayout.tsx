@@ -13,6 +13,7 @@ import {
   Person as PersonIcon,
   Token as TokenIcon,
   History as HistoryIcon,
+  GitHub as GitHubIcon,
 } from '@mui/icons-material'
 import {
   AppBar,
@@ -371,6 +372,24 @@ export default function MainLayout() {
                 </MenuItem>
               ))}
             </Menu>
+            
+            {/* GitHub Link */}
+            <Tooltip title="访问 GitHub 仓库">
+              <IconButton 
+                color="inherit" 
+                component="a" 
+                href="https://github.com/lingmaw/lingma"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  '&:hover': {
+                    color: theme.palette.primary.main,
+                  },
+                }}
+              >
+                <GitHubIcon />
+              </IconButton>
+            </Tooltip>
           </Box>
         </Toolbar>
       </AppBar>
