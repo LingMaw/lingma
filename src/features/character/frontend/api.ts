@@ -14,6 +14,7 @@ import type {
   UpdateCharacterRequest,
   CreateCharacterRelationRequest,
   UpdateCharacterRelationRequest,
+  GenerateCharacterRequest,
   RelationGraphData,
 } from './types'
 
@@ -119,6 +120,14 @@ export const characterAPI = {
    */
   async delete(id: number) {
     const { data} = await httpClient.delete<{ success: boolean; message: string }>(`/characters/${id}`)
+    return data
+  },
+
+  /**
+   * AI生成角色
+   */
+  async generateByAI(payload: Omit<GenerateCharacterRequest, 'user_id'>) {
+    const { data } = await httpClient.post<Character>('/characters/generate', payload)
     return data
   },
 }

@@ -7,6 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 
+from src.backend.core.dependencies import CurrentUserId
 from src.backend.core.exceptions import raise_resource_not_found
 from src.backend.core.response import MessageResponse, message_response
 from src.features.character.backend.models import (
@@ -16,6 +17,7 @@ from src.features.character.backend.models import (
 )
 from src.features.character.backend.schemas import (
     CharacterCreate,
+    CharacterGenerateRequest,
     CharacterRelationCreate,
     CharacterRelationResponse,
     CharacterRelationUpdate,
@@ -123,6 +125,22 @@ async def create_character(data: CharacterCreate):
         character = await Character.create(**data.model_dump(exclude={"template_id"}))
 
     return character
+
+
+@router.post("/generate", response_model=CharacterResponse)
+async def generate_character_by_ai(data: CharacterGenerateRequest, user_id: CurrentUserId):
+    """AI生成角色"""
+    return await CharacterService.generate_by_ai(
+        user_id=user_id,
+        character_type=data.character_type,
+        gender=data.gender,
+        age_range=data.age_range,
+        personality_traits=data.personality_traits,
+        background_hint=data.background_hint,
+        abilities_hint=data.abilities_hint,
+        additional_requirements=data.additional_requirements,
+        project_id=data.project_id,
+    )
 
 
 @router.get("/{character_id}", response_model=CharacterResponse)

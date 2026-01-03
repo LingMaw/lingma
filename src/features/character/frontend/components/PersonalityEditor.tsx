@@ -57,9 +57,16 @@ export default function PersonalityEditor({
   const [newFear, setNewFear] = useState('')
 
   const personality = formData.personality || {}
-  const traits = personality.traits || []
-  const habits = personality.habits || []
-  const fears = personality.fears || []
+  
+  // 处理字段映射: core_traits -> traits
+  const traits = Array.isArray(personality.traits) 
+    ? personality.traits 
+    : Array.isArray(personality.core_traits) 
+    ? personality.core_traits 
+    : []
+  
+  const habits = Array.isArray(personality.habits) ? personality.habits : []
+  const fears = Array.isArray(personality.fears) ? personality.fears : []
 
   const updatePersonality = (field: string, value: any) => {
     onFormChange({

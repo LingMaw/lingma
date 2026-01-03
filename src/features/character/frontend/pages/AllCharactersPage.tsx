@@ -30,6 +30,7 @@ import {
   Person as PersonIcon,
   Add as AddIcon,
   AccountTree as AccountTreeIcon,
+  Psychology as PsychologyIcon,
 } from '@mui/icons-material'
 import { motion, AnimatePresence } from 'framer-motion'
 import { pageVariants, scaleVariants } from '@/frontend/core/animation'
@@ -41,6 +42,7 @@ import {
   PublicCharacterList,
   ProjectCharacterList,
 } from '@/features/character/frontend/components'
+import AIGenerateCharacterDialog, { type GenerateParams } from '@/features/character/frontend/components/AllCharactersPage/AIGenerateCharacterDialog'
 import type { Character, CharacterTemplate } from '@/features/character/frontend/types'
 import type { components } from '@/frontend/core/types/generated'
 
@@ -66,6 +68,9 @@ export default function AllCharactersPage() {
   const [newCharacterName, setNewCharacterName] = useState('')
   const [creating, setCreating] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
+
+  // AI生成对话框状态
+  const [aiGenerateDialogOpen, setAiGenerateDialogOpen] = useState(false)
 
   // 删除确认对话框状态
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -194,6 +199,19 @@ export default function AllCharactersPage() {
     setNewCharacterName('')
     setSelectedTemplate(null)
     setSelectedProjectId(null)
+  }
+
+  // AI生成角色
+  const handleAIGenerate = async (params: GenerateParams) => {
+    try {
+      const newChar = await characterAPI.generateByAI(params)
+      setAiGenerateDialogOpen(false)
+      loadData()
+      navigate(`/characters/${newChar.id}`)
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'AI生成失败')
+      console.error(err)
+    }
   }
 
   // 获取所有分类
@@ -350,6 +368,24 @@ export default function AllCharactersPage() {
               }}
             >
               关系图谱
+            </Button>
+            <Button
+              component={motion.button}
+              variants={scaleVariants}
+              whileHover="hover"
+              whileTap="tap"
+              variant="outlined"
+              color="secondary"
+              startIcon={<PsychologyIcon />}
+              onClick={() => setAiGenerateDialogOpen(true)}
+              sx={{
+                px: 3,
+                py: 1.2,
+                borderRadius: 3,
+                fontWeight: 600,
+              }}
+            >
+              AI生成
             </Button>
             <Button
               component={motion.button}
@@ -561,6 +597,17 @@ export default function AllCharactersPage() {
         creating={creating}
         onCreateBlank={handleCreateBlank}
         onCreateFromTemplate={handleCreateFromTemplate}
+        currentTab={currentTab}
+        allProjects={allProjects}
+        selectedProjectId={selectedProjectId}
+        onProjectSelect={setSelectedProjectId}
+      />
+
+      {/* AI生成角色对话框 */}
+      <AIGenerateCharacterDialog
+        open={aiGenerateDialogOpen}
+        onClose={() => setAiGenerateDialogOpen(false)}
+        onGenerate={handleAIGenerate}
         currentTab={currentTab}
         allProjects={allProjects}
         selectedProjectId={selectedProjectId}

@@ -160,6 +160,21 @@ export interface UpdateCharacterRelationRequest {
   is_bidirectional?: boolean
 }
 
+/**
+ * AI生成角色请求
+ */
+export interface GenerateCharacterRequest {
+  character_type?: string
+  gender?: string
+  age_range?: string
+  personality_traits?: string
+  background_hint?: string
+  abilities_hint?: string
+  additional_requirements?: string
+  project_id?: number
+  user_id?: number
+}
+
 // ===== 前端特有类型 =====
 
 /**
@@ -174,6 +189,8 @@ export interface CharacterFormData {
     occupation?: string
     location?: string
     aliases?: string[]
+    // 兼容后端AI生成的字段
+    social_status?: string
   }
   background: {
     origin?: string
@@ -184,6 +201,13 @@ export interface CharacterFormData {
       event: string
       impact: string
     }>
+    // 兼容后端AI生成的字段
+    major_events?: string[] | Array<{
+      time: string
+      event: string
+      impact: string
+    }>
+    current_situation?: string
   }
   personality: {
     traits?: string[]
@@ -191,6 +215,11 @@ export interface CharacterFormData {
     values?: string
     goals?: string
     fears?: string[]
+    // 兼容后端AI生成的字段
+    core_traits?: string[]
+    strengths?: string[]
+    weaknesses?: string[]
+    desires?: string
   }
   abilities: {
     skills?: Array<{
@@ -201,6 +230,11 @@ export interface CharacterFormData {
     strengths?: string[]
     weaknesses?: string[]
     special_abilities?: string[]
+    // 兼容后端AI生成的字段
+    combat_ability?: string
+    intellectual_ability?: string
+    social_ability?: string
+    talents?: string
   }
   notes?: string
 }

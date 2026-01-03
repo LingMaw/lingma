@@ -71,6 +71,19 @@ class CharacterCreate(CharacterBase):
     template_id: Optional[int] = Field(None, description="来源模板ID")
 
 
+class CharacterGenerateRequest(BaseModel):
+    """AI生成角色请求模型"""
+
+    character_type: Optional[str] = Field(None, description="角色类型(主角/配角/反派等)")
+    gender: Optional[str] = Field(None, description="性别(男/女/其他)")
+    age_range: Optional[str] = Field(None, description="年龄范围(如:20-30岁)")
+    personality_traits: Optional[str] = Field(None, description="性格特点提示")
+    background_hint: Optional[str] = Field(None, description="背景提示")
+    abilities_hint: Optional[str] = Field(None, description="能力/技能提示")
+    additional_requirements: Optional[str] = Field(None, description="其他要求")
+    project_id: Optional[int] = Field(None, description="所属项目ID(NULL表示全局角色)")
+
+
 class CharacterUpdate(BaseModel):
     """更新角色请求模型(所有字段可选)"""
 

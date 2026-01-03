@@ -36,7 +36,20 @@ export default function BackgroundEditor({
   const [loading, setLoading] = useState(false)
 
   const background = formData.background || {}
-  const keyEvents = background.key_events || []
+  
+  // 处理 key_events/major_events: 可能是对象数组或字符串数组
+  const rawKeyEvents = background.key_events || background.major_events
+  const keyEvents = Array.isArray(rawKeyEvents)
+    ? rawKeyEvents.map((event: any) => {
+        if (typeof event === 'string') {
+          // 字符串格式转换为对象格式
+          return { time: '', event: event, impact: '' }
+        }
+        return event
+      })
+    : []
+  
+  const experiences = Array.isArray(background.experiences) ? background.experiences : []
 
   const updateBackground = (field: string, value: any) => {
     onFormChange({
@@ -104,7 +117,7 @@ export default function BackgroundEditor({
         <Box component={motion.div} variants={itemVariants}>
           <TextField
             label="重要经历"
-            value={(background.experiences || []).join('\n')}
+            value={experiences.join('\n')}
             onChange={(e) =>
               updateBackground(
                 'experiences',

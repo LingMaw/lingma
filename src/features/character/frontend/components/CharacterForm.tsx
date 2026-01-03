@@ -18,13 +18,84 @@ interface CharacterFormProps {
 
 // 默认表单数据
 export function getDefaultFormData(character?: Character): CharacterFormData {
+  if (!character) {
+    return {
+      name: '',
+      basic_info: {},
+      background: {},
+      personality: {},
+      abilities: {},
+      notes: undefined,
+    }
+  }
+
+  // 标准化后端数据以适配前端表单
+  const normalizeSkills = (skills: any): Array<{name: string, level: number, description?: string}> => {
+    if (!Array.isArray(skills)) return []
+    return skills.map((skill: any) => {
+      if (typeof skill === 'string') {
+        return { name: skill, level: 5, description: '' }
+      }
+      return skill
+    })
+  }
+
+  const normalizeKeyEvents = (events: any): Array<{time: string, event: string, impact: string}> => {
+    if (!Array.isArray(events)) return []
+    return events.map((event: any) => {
+      if (typeof event === 'string') {
+        return { time: '', event: event, impact: '' }
+      }
+      return event
+    })
+  }
+
   return {
-    name: character?.name || '',
-    basic_info: character?.basic_info || {},
-    background: character?.background || {},
-    personality: character?.personality || {},
-    abilities: character?.abilities || {},
-    notes: character?.notes,
+    name: character.name || '',
+    basic_info: character.basic_info || {},
+    background: {
+      ...character.background,
+      // 标准化 key_events (可能来自 major_events)
+      key_events: normalizeKeyEvents(
+        character.background.key_events || character.background.major_events
+      ),
+      // 确保 experiences 是数组
+      experiences: Array.isArray(character.background.experiences) 
+        ? character.background.experiences 
+        : [],
+    },
+    personality: {
+      ...character.personality,
+      // 标准化 traits (可能来自 core_traits)
+      traits: Array.isArray(character.personality.traits)
+        ? character.personality.traits
+        : Array.isArray(character.personality.core_traits)
+        ? character.personality.core_traits
+        : [],
+      // 从 personality.strengths/weaknesses 移动到 abilities (如果存在)
+      habits: Array.isArray(character.personality.habits) ? character.personality.habits : [],
+      fears: Array.isArray(character.personality.fears) ? character.personality.fears : [],
+    },
+    abilities: {
+      ...character.abilities,
+      // 标准化 skills
+      skills: normalizeSkills(character.abilities.skills),
+      // 优先使用 abilities 中的数据，否则从 personality 中获取
+      strengths: Array.isArray(character.abilities.strengths)
+        ? character.abilities.strengths
+        : Array.isArray(character.personality.strengths)
+        ? character.personality.strengths
+        : [],
+      weaknesses: Array.isArray(character.abilities.weaknesses)
+        ? character.abilities.weaknesses
+        : Array.isArray(character.personality.weaknesses)
+        ? character.personality.weaknesses
+        : [],
+      special_abilities: Array.isArray(character.abilities.special_abilities)
+        ? character.abilities.special_abilities
+        : [],
+    },
+    notes: character.notes,
   }
 }
 

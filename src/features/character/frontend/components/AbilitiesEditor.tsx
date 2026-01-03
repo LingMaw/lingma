@@ -47,10 +47,22 @@ export default function AbilitiesEditor({
   const [newSpecial, setNewSpecial] = useState('')
 
   const abilities = formData.abilities || {}
-  const skills: Skill[] = abilities.skills || []
-  const strengths: string[] = abilities.strengths || []
-  const weaknesses: string[] = abilities.weaknesses || []
-  const specialAbilities: string[] = abilities.special_abilities || []
+  
+  // 处理 skills: 可能是对象数组或字符串数组
+  const rawSkills = abilities.skills
+  const skills: Skill[] = Array.isArray(rawSkills)
+    ? rawSkills.map((skill: any) => {
+        if (typeof skill === 'string') {
+          // 字符串格式转换为对象格式
+          return { name: skill, level: 5, description: '' }
+        }
+        return skill
+      })
+    : []
+  
+  const strengths: string[] = Array.isArray(abilities.strengths) ? abilities.strengths : []
+  const weaknesses: string[] = Array.isArray(abilities.weaknesses) ? abilities.weaknesses : []
+  const specialAbilities: string[] = Array.isArray(abilities.special_abilities) ? abilities.special_abilities : []
 
   const updateAbilities = (field: string, value: any) => {
     onFormChange({
