@@ -22,6 +22,7 @@ import { scaleVariants } from '@/frontend/core/animation'
 import AutoStoriesIcon from '@mui/icons-material/AutoStories'
 import SaveIcon from '@mui/icons-material/Save'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import { StreamProgressIndicator } from '@/frontend/shared'
 
 // API 和类型
 import { novelGeneratorAPI } from '@/features/novel_generator/frontend'
@@ -129,6 +130,15 @@ const NovelGeneratorPage: React.FC = () => {
       abortControllerRef.current = null
     }
   }, [state.form])
+
+  // 停止生成
+  const handleStopGenerate = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    dispatch({ type: 'SET_STREAMING', isStreaming: false })
+  }, [])
 
 
 
@@ -439,7 +449,7 @@ const NovelGeneratorPage: React.FC = () => {
                           <TextField
                             value={state.form.requirement}
                             onChange={(e) => handleFieldChange('requirement', e.target.value)}
-                            placeholder="输入故事背景..."
+                            placeholder="例如：增加心理描写，突出主角矛盾心理；加强环境渲染，营造紧张氛围..."
                             multiline
                             rows={6}
                             disabled={state.isStreaming}
@@ -569,6 +579,14 @@ const NovelGeneratorPage: React.FC = () => {
                           flexDirection: 'column',
                         }}
                       >
+                        {/* 流式生成进度指示器 */}
+                        <StreamProgressIndicator
+                          isGenerating={state.isStreaming}
+                          generatedContent={state.content.streaming}
+                          onStop={handleStopGenerate}
+                          statusText="AI创作中..."
+                        />
+                        
                         {!state.content.generated && !state.content.streaming ? (
                           <Box
                             sx={{

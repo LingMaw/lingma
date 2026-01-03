@@ -24,7 +24,6 @@ import {
   DialogActions,
   Card,
   CardContent,
-  LinearProgress,
 } from '@mui/material'
 import Grid2 from '@mui/material/Grid2'
 import {
@@ -38,6 +37,7 @@ import {
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { pageVariants } from '@/frontend/core/animation'
+import { StreamProgressIndicator, EnhancedRequirementInput } from '@/frontend/shared'
 
 import { novelProjectAPI } from '../api'
 import type { components } from '@/frontend/core/types/generated'
@@ -667,7 +667,20 @@ export default function ProjectEditorPage() {
           </Stack>
         </DialogTitle>
         <DialogContent dividers>
-          {aiGenerating && <LinearProgress sx={{ mb: 2 }} />}
+          {/* 流式生成进度指示器 */}
+          <StreamProgressIndicator
+            isGenerating={aiGenerating}
+            generatedContent={aiContent}
+            onStop={() => {
+              if (abortControllerRef.current) {
+                abortControllerRef.current()
+                abortControllerRef.current = null
+              }
+              setAiGenerating(false)
+            }}
+            statusText="AI创作中..."
+          />
+          
           <TextField
             value={aiContent}
             multiline
@@ -733,17 +746,15 @@ export default function ProjectEditorPage() {
           </Stack>
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <TextField
-            autoFocus
-            label="需求或提示（可不填）"
-            placeholder="例如：加入更多动作描写、优化读者不喜欢的策略等"
+          {/* 增强的需求输入组件 */}
+          <EnhancedRequirementInput
             value={aiRequirement}
-            onChange={(e) => setAiRequirement(e.target.value)}
-            multiline
-            fullWidth
-            minRows={3}
-            maxRows={8}
-            variant="outlined"
+            onChange={setAiRequirement}
+            disabled={false}
+            scene={aiPendingAction || 'generate'}
+            minLength={5}
+            storageKey={`project_ai_requirement_${aiPendingAction}`}
+            maxHistoryCount={5}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
@@ -753,6 +764,7 @@ export default function ProjectEditorPage() {
           <Button
             onClick={aiPendingAction === 'generate' ? handleAiGenerateConfirm : handleAiContinueConfirm}
             variant="contained"
+            disabled={aiRequirement.trim().length > 0 && aiRequirement.trim().length < 5}
             sx={{ borderRadius: 2 }}
           >
             开始{aiPendingAction === 'generate' ? '生成' : '续写'}

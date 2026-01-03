@@ -4,3 +4,5 @@
 export { default as MarkdownRenderer } from './MarkdownRenderer'
 export { default as GlobalNotificationProvider } from './GlobalNotificationProvider'
 export { default as DangerConfirmDialog } from './DangerConfirmDialog'
+export { default as StreamProgressIndicator } from './StreamProgressIndicator'
+export { default as EnhancedRequirementInput } from './EnhancedRequirementInput'

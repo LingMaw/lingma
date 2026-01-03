@@ -24,7 +24,6 @@ import {
   DialogActions,
   Card,
   CardContent,
-  LinearProgress,
   Select,
   FormControl,
   InputLabel,
@@ -44,6 +43,7 @@ import {
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { pageVariants } from '@/frontend/core/animation'
+import { StreamProgressIndicator, EnhancedRequirementInput } from '@/frontend/shared'
 
 import { chapterAPI } from '../api'
 import type { ChapterResponse } from '../types'
@@ -836,7 +836,20 @@ export default function ChapterEditorPage() {
           </Stack>
         </DialogTitle>
         <DialogContent dividers>
-          {aiGenerating && <LinearProgress sx={{ mb: 2 }} />}
+          {/* 流式生成进度指示器 */}
+          <StreamProgressIndicator
+            isGenerating={aiGenerating}
+            generatedContent={aiContent}
+            onStop={() => {
+              if (abortControllerRef.current) {
+                abortControllerRef.current()
+                abortControllerRef.current = null
+              }
+              setAiGenerating(false)
+            }}
+            statusText="AI创作中..."
+          />
+          
           <TextField
             value={aiContent}
             multiline
@@ -978,17 +991,15 @@ export default function ChapterEditorPage() {
               </FormControl>
             )}
             
-            <TextField
-              autoFocus
-              label="需求或提示（可不填）"
-              placeholder="例如：加入更多动作描写、保留关键对话等"
+            {/* 增强的需求输入组件 */}
+            <EnhancedRequirementInput
               value={aiRequirement}
-              onChange={(e) => setAiRequirement(e.target.value)}
-              multiline
-              fullWidth
-              minRows={3}
-              maxRows={8}
-              variant="outlined"
+              onChange={setAiRequirement}
+              disabled={false}
+              scene={aiPendingAction || 'generate'}
+              minLength={5}
+              storageKey={`chapter_ai_requirement_${aiPendingAction}`}
+              maxHistoryCount={5}
             />
           </Stack>
         </DialogContent>
@@ -1007,6 +1018,7 @@ export default function ChapterEditorPage() {
                 : handleAiCompressConfirm
             }
             variant="contained"
+            disabled={aiRequirement.trim().length > 0 && aiRequirement.trim().length < 5}
             sx={{ borderRadius: 2 }}
           >
             开始
