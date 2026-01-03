@@ -8,7 +8,6 @@ import {
   Typography,
   CircularProgress,
   Alert,
-  Snackbar,
   Chip,
   IconButton,
   Tooltip,
@@ -24,16 +23,20 @@ import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import BookIcon from '@mui/icons-material/Book'
+import { DangerConfirmDialog } from '@/frontend/shared'
+import { useNotificationStore } from '@/frontend/shared'
 
 const ProjectListPage: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [snackbarOpen, setSnackbarOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState<any>(null)
 
   const navigate = useNavigate()
   const theme = useTheme()
+  const { showNotification } = useNotificationStore()
 
   useEffect(() => {
     fetchProjects()
@@ -46,22 +49,28 @@ const ProjectListPage: React.FC = () => {
       setProjects(response.items)
     } catch (err) {
       setError('获取项目列表失败')
-      setSnackbarOpen(true)
+      showNotification('获取项目列表失败', 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDeleteClick = (project: any) => {
+    setProjectToDelete(project)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!projectToDelete) return
     try {
-      setDeletingId(id)
-      await novelProjectAPI.deleteProject(id)
-      setProjects(projects.filter(project => project.id !== id))
-      setError('项目删除成功')
-      setSnackbarOpen(true)
+      setDeletingId(projectToDelete.id)
+      await novelProjectAPI.deleteProject(projectToDelete.id)
+      setProjects(projects.filter(project => project.id !== projectToDelete.id))
+      setDeleteDialogOpen(false)
+      setProjectToDelete(null)
+      showNotification('项目删除成功', 'success')
     } catch (err) {
-      setError('删除项目失败')
-      setSnackbarOpen(true)
+      showNotification('删除项目失败', 'error')
     } finally {
       setDeletingId(null)
     }
@@ -242,7 +251,7 @@ const ProjectListPage: React.FC = () => {
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDelete(project.id);
+                                  handleDeleteClick(project);
                                 }}
                                 disabled={deletingId === project.id}
                               >
@@ -318,21 +327,16 @@ const ProjectListPage: React.FC = () => {
           <AddIcon />
         </Fab>
 
-        <Snackbar
-          open={snackbarOpen}
-          autoHideDuration={3000}
-          onClose={() => setSnackbarOpen(false)}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        >
-          <Alert
-            onClose={() => setSnackbarOpen(false)}
-            severity={error?.includes('失败') ? 'error' : 'success'}
-            variant="filled"
-            sx={{ width: '100%' }}
-          >
-            {error}
-          </Alert>
-        </Snackbar>
+        {/* 删除确认对话框 */}
+        <DangerConfirmDialog
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          onConfirm={handleDelete}
+          message="确定要删除此项目吗？删除后将无法恢复。"
+          itemName={projectToDelete?.title}
+          relatedInfo={`状态: ${getStatusText(projectToDelete?.status || '')} | 创建时间: ${projectToDelete ? new Date(projectToDelete.created_at).toLocaleDateString() : ''}`}
+          loading={deletingId !== null}
+        />
       </motion.div>
     </Box>
   )

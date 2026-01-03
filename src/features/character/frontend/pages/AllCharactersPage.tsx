@@ -19,11 +19,6 @@ import {
   Skeleton,
   Tabs,
   Tab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
 } from '@mui/material'
 import Grid2 from '@mui/material/Grid2'
 import {
@@ -45,12 +40,15 @@ import {
 import AIGenerateCharacterDialog, { type GenerateParams } from '@/features/character/frontend/components/AllCharactersPage/AIGenerateCharacterDialog'
 import type { Character, CharacterTemplate } from '@/features/character/frontend/types'
 import type { components } from '@/frontend/core/types/generated'
+import { DangerConfirmDialog } from '@/frontend/shared'
+import { useNotificationStore } from '@/frontend/shared'
 
 type NovelProjectResponse = components['schemas']['NovelProjectResponse']
 
 export default function AllCharactersPage() {
   const navigate = useNavigate()
   const theme = useTheme()
+  const { showNotification } = useNotificationStore()
 
   const [characters, setCharacters] = useState<Character[]>([])
   const [templates, setTemplates] = useState<CharacterTemplate[]>([])
@@ -282,9 +280,10 @@ export default function AllCharactersPage() {
       await characterAPI.delete(characterToDelete.id)
       setDeleteDialogOpen(false)
       setCharacterToDelete(null)
+      showNotification('角色删除成功', 'success')
       loadData()
     } catch (err) {
-      setError('删除角色失败')
+      showNotification('删除角色失败', 'error')
       console.error(err)
     } finally {
       setDeleting(false)
@@ -615,37 +614,19 @@ export default function AllCharactersPage() {
       />
 
       {/* 删除确认对话框 */}
-      <Dialog
+      <DangerConfirmDialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            backdropFilter: 'blur(20px)',
-          },
-        }}
-      >
-        <DialogTitle>确认删除</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            确定要删除角色「{characterToDelete?.name}」吗？此操作不可撤销。
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
-            取消
-          </Button>
-          <Button
-            onClick={handleConfirmDelete}
-            color="error"
-            variant="contained"
-            disabled={deleting}
-            sx={{ borderRadius: 2 }}
-          >
-            {deleting ? '删除中' : '删除'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleConfirmDelete}
+        message="确定要删除此角色吗？删除后将无法恢复。"
+        itemName={characterToDelete?.name}
+        relatedInfo={
+          characterToDelete?.project_id
+            ? `所属项目: ${projects.get(characterToDelete.project_id)?.title || '未知项目'}`
+            : '公共角色（可在所有项目中使用）'
+        }
+        loading={deleting}
+      />
     </Container>
   )
 }

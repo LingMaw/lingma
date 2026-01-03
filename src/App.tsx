@@ -6,6 +6,7 @@ import { router } from '@/frontend/core'
 import { useUserStore } from '@/frontend/shared/stores/user'
 import { useThemeStore } from '@/frontend/shared/stores/theme'
 import { getTheme } from '@/frontend/core/theme'
+import { GlobalNotificationProvider } from '@/frontend/shared'
 
 const queryClient = new QueryClient()
 
@@ -43,6 +44,7 @@ function App() {
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
+        <GlobalNotificationProvider />
       </QueryClientProvider>
     </ThemeProvider>
   )

@@ -34,11 +34,13 @@ import QuickCreateProjectDialog from '@/features/novel_generator/frontend/compon
 import type { ShortStoryTemplate } from '@/features/novel_generator/frontend/types'
 import { useUserStore } from '@/frontend/shared/stores/user'
 import { useNavigate } from 'react-router-dom'
+import { useNotificationStore } from '@/frontend/shared'
 
 const NovelGeneratorPage: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { isAuthenticated } = useUserStore()
+  const { showNotification, showTooltip } = useNotificationStore()
   const { project, content: initialContent } = location.state || {}
   const theme = useTheme()
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
@@ -70,7 +72,7 @@ const NovelGeneratorPage: React.FC = () => {
 
   const handleGenerate = useCallback(async () => {
     if (!state.form.title.trim()) {
-      alert('请输入小说标题')
+      showNotification('请输入小说标题', 'warning')
       return
     }
 
@@ -120,7 +122,7 @@ const NovelGeneratorPage: React.FC = () => {
       if (err.name === 'AbortError') {
         console.log('生成已停止')
       } else {
-        alert(err.message || '流式生成失败')
+        showNotification(err.message || '流式生成失败', 'error')
       }
     } finally {
       dispatch({ type: 'SET_STREAMING', isStreaming: false })
@@ -137,7 +139,7 @@ const NovelGeneratorPage: React.FC = () => {
   const handleQuickCreateProject = useCallback(() => {
     // 检查登录状态
     if (!isAuthenticated) {
-      alert('请先登录后再创建项目')
+      showNotification('请先登录后再创建项目', 'warning')
       navigate('/login')
       return
     }
@@ -145,7 +147,7 @@ const NovelGeneratorPage: React.FC = () => {
     // 检查是否有内容
     const contentToSave = state.content.generated || state.content.streaming
     if (!contentToSave) {
-      alert('没有可保存的内容，请先生成小说')
+      showNotification('没有可保存的内容，请先生成小说', 'warning')
       return
     }
 
@@ -164,11 +166,11 @@ const NovelGeneratorPage: React.FC = () => {
 
     try {
       await navigator.clipboard.writeText(text)
-      alert('已复制到剪贴板')
+      showTooltip('已复制到剪贴板')
     } catch {
-      alert('复制失败')
+      showNotification('复制失败', 'error')
     }
-  }, [state.content.generated, state.content.streaming])
+  }, [state.content.generated, state.content.streaming, showTooltip, showNotification])
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },

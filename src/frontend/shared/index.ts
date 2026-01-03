@@ -14,4 +14,5 @@ export { default as MainLayout } from './layouts/MainLayout'
 // 状态管理
 export * from './stores/app'
 export * from './stores/user'
+export * from './stores/notification'
 

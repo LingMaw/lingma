@@ -15,6 +15,7 @@ import {
 
 import { outlineAPI } from '../api'
 import type { OutlineNodeResponse, NodeType } from '../types'
+import { useNotificationStore } from '@/frontend/shared'
 
 interface OutlineNodeEditorProps {
   open: boolean
@@ -38,6 +39,7 @@ export default function OutlineNodeEditor({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
+  const { showNotification } = useNotificationStore()
 
   // 初始化表单数据
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function OutlineNodeEditor({
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      alert('请输入标题')
+      showNotification('请输入标题', 'warning')
       return
     }
 
