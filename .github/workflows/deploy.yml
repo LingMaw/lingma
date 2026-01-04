@@ -136,7 +136,7 @@ jobs:
                   mkdir -p release-assets
                   REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
                   # 将默认的 nekroai/nekro-vstack-template 替换为当前构建的仓库名
-                  sed "s|ghcr.io/nekroai/nekro-vstack-template:latest|${{ env.REGISTRY }}/${REPO_LOWER}:latest|g" deploy/docker-compose.yml > release-assets/docker-compose.yml
+                  sed "s|ghcr.io/lingmaw/lingma:latest|${{ env.REGISTRY }}/${REPO_LOWER}:latest|g" deploy/docker-compose.yml > release-assets/docker-compose.yml
 
                   echo "## 部署说明" > release-assets/README.txt
                   echo "### Docker 部署" >> release-assets/README.txt

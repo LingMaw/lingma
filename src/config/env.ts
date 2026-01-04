@@ -56,7 +56,7 @@ export const env = {
   // 应用相关
   APP_NAME: import.meta.env.VITE_APP_NAME || '灵码小说助手',
   APP_VERSION: import.meta.env.VITE_APP_VERSION || '0.1.0',
-  APP_DESCRIPTION: import.meta.env.VITE_APP_DESCRIPTION || '垂直切分的 AI 友好全栈开发模板',
+  APP_DESCRIPTION: import.meta.env.VITE_APP_DESCRIPTION || '灵码小说助手',
 
   // 功能开关
   ENABLE_MOCK: import.meta.env.VITE_ENABLE_MOCK === 'true',
