@@ -20,7 +20,7 @@ if exist .env (
 )
 
 REM 显示启动信息
-echo 🚀 启动 Nekro VStack 后端开发服务器...
+echo 🚀 启动 LingMa 后端开发服务器...
 echo.
 echo 🌐 服务器地址: http://localhost:%BACKEND_PORT%
 echo 📖 API 文档: http://localhost:%BACKEND_PORT%/docs
