@@ -44,7 +44,7 @@ import {
 import { motion } from 'framer-motion'
 import { pageVariants } from '@/frontend/core/animation'
 import { StreamProgressIndicator, EnhancedRequirementInput, useBreadcrumb } from '@/frontend/shared'
-import { useDocumentTitle } from '@/frontend/core'
+import { useDocumentTitle, useKeyboardShortcuts, useFocusManagement } from '@/frontend/core'
 import { novelProjectAPI } from '@/features/novel_project/frontend'
 
 import { chapterAPI } from '../api'
@@ -133,6 +133,71 @@ export default function ChapterEditorPage() {
     content,
     textareaRef,
     targetChars: undefined, // 可以从 localStorage 读取
+  })
+
+  // 键盘快捷键
+  useKeyboardShortcuts({
+    shortcuts: [
+      {
+        key: 's',
+        ctrlOrCmd: true,
+        handler: (e) => {
+          e.preventDefault()
+          handleSave()
+        },
+        description: '保存章节',
+      },
+      {
+        key: 'Escape',
+        handler: () => {
+          // 如果有对话框打开，优先关闭对话框
+          if (aiDialogOpen) {
+            handleAiDialogClose()
+          } else if (aiRequirementInputOpen) {
+            setAiRequirementInputOpen(false)
+          } else if (deleteDialogOpen) {
+            setDeleteDialogOpen(false)
+          } else {
+            // 否则返回列表
+            handleBack()
+          }
+        },
+        description: '返回/关闭对话框',
+      },
+      {
+        key: 'g',
+        ctrlOrCmd: true,
+        handler: (e) => {
+          e.preventDefault()
+          if (!aiGenerating) {
+            handleAiGenerate()
+          }
+        },
+        description: 'AI生成',
+      },
+    ],
+    enabled: !aiGenerating, // AI生成时禁用快捷键
+  })
+
+  // 焦点管理 - AI生成对话框
+  const aiDialogFocus = useFocusManagement(aiDialogOpen, {
+    autoFocusOnOpen: true,
+    returnFocusOnClose: true,
+    focusSelector: 'button',
+  })
+
+  // 焦点管理 - AI需求输入对话框
+  const aiRequirementDialogFocus = useFocusManagement(aiRequirementInputOpen, {
+    autoFocusOnOpen: true,
+    returnFocusOnClose: true,
+    focusSelector: 'textarea, input',
+  })
+
+  // 焦点管理 - 删除确认对话框
+  const deleteDialogFocus = useFocusManagement(deleteDialogOpen, {
+    autoFocusOnOpen: true,
+    returnFocusOnClose: true,
+    focusSelector: 'button',
   })
 
   useEffect(() => {
@@ -785,6 +850,7 @@ export default function ChapterEditorPage() {
         maxWidth="md"
         fullWidth
         PaperProps={{
+          ref: aiDialogFocus.setContainerRef as any,
           sx: {
             borderRadius: 3,
             bgcolor: (theme) => alpha(theme.palette.background.paper, 0.95),
@@ -851,6 +917,7 @@ export default function ChapterEditorPage() {
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
         PaperProps={{
+          ref: deleteDialogFocus.setContainerRef as any,
           sx: {
             borderRadius: 3,
             bgcolor: (theme) => alpha(theme.palette.background.paper, 0.9),
@@ -888,6 +955,7 @@ export default function ChapterEditorPage() {
         maxWidth="sm"
         fullWidth
         PaperProps={{
+          ref: aiRequirementDialogFocus.setContainerRef as any,
           sx: {
             borderRadius: 3,
             bgcolor: (theme) => alpha(theme.palette.background.paper, 0.95),

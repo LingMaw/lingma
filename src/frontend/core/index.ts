@@ -16,3 +16,9 @@ export { default as router } from './router'
 export { useDocumentTitle } from './hooks/useDocumentTitle'
 export type { UseDocumentTitleOptions } from './hooks/useDocumentTitle'
 
+export { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+export type { KeyboardShortcut, UseKeyboardShortcutsOptions } from './hooks/useKeyboardShortcuts'
+
+export { useFocusManagement } from './hooks/useFocusManagement'
+export type { UseFocusManagementOptions } from './hooks/useFocusManagement'
+

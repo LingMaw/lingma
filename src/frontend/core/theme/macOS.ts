@@ -95,6 +95,16 @@ export const getTheme = (mode: ThemeMode, paletteName: ColorPalette) => {
             backgroundColor: backgroundDefault,
             transition: 'background-color 0.3s ease',
           },
+          // 焦点指示器样式
+          '*:focus-visible': {
+            outline: `3px solid ${alpha(primaryColor, 0.6)}`,
+            outlineOffset: '2px',
+            borderRadius: '4px',
+          },
+          // 移除默认的焦点样式
+          '*:focus': {
+            outline: 'none',
+          },
         },
       },
       MuiButton: {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import {
   Box,
   Button,
@@ -16,6 +16,8 @@ import {
   alpha,
   LinearProgress,
   Stack,
+  TextField,
+  InputAdornment,
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
@@ -29,9 +31,11 @@ import DescriptionIcon from '@mui/icons-material/Description'
 import PeopleIcon from '@mui/icons-material/People'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import SearchIcon from '@mui/icons-material/Search'
+import CloseIcon from '@mui/icons-material/Close'
 import { DangerConfirmDialog, EmptyState, SkeletonProjectList } from '@/frontend/shared'
 import { useNotificationStore } from '@/frontend/shared'
-import { useDocumentTitle } from '@/frontend/core'
+import { useDocumentTitle, useKeyboardShortcuts } from '@/frontend/core'
 
 const ProjectListPage: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([])
@@ -40,6 +44,9 @@ const ProjectListPage: React.FC = () => {
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<any>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const navigate = useNavigate()
   const theme = useTheme()
@@ -47,6 +54,35 @@ const ProjectListPage: React.FC = () => {
 
   // 动态标题
   useDocumentTitle({ title: '小说项目' })
+
+  // 键盘快捷键
+  useKeyboardShortcuts({
+    shortcuts: [
+      {
+        key: 'k',
+        ctrlOrCmd: true,
+        handler: (e) => {
+          e.preventDefault()
+          setIsSearching(true)
+          setTimeout(() => {
+            searchInputRef.current?.focus()
+          }, 100)
+        },
+        description: '打开搜索',
+      },
+      {
+        key: 'Escape',
+        handler: () => {
+          if (isSearching) {
+            setIsSearching(false)
+            setSearchQuery('')
+          }
+        },
+        description: '关闭搜索',
+      },
+    ],
+    enabled: !deleteDialogOpen,
+  })
 
   useEffect(() => {
     fetchProjects()
@@ -122,6 +158,19 @@ const ProjectListPage: React.FC = () => {
     return '刚刚'
   }
 
+  // 过滤项目
+  const filteredProjects = projects.filter((project) => {
+    if (!searchQuery.trim()) return true
+    
+    const query = searchQuery.toLowerCase()
+    return (
+      project.title?.toLowerCase().includes(query) ||
+      project.description?.toLowerCase().includes(query) ||
+      project.genre?.toLowerCase().includes(query) ||
+      project.style?.toLowerCase().includes(query)
+    )
+  })
+
   return (
     <Box sx={{ height: '100%' }}>
       <motion.div
@@ -131,10 +180,64 @@ const ProjectListPage: React.FC = () => {
         style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
       >
         <Container maxWidth="xl" sx={{ py: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2 }}>
             <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
               小说项目管理
             </Typography>
+            
+            {/* 搜索框 */}
+            {isSearching && (
+              <Box sx={{ flex: 1, maxWidth: 500 }}>
+                <TextField
+                  inputRef={searchInputRef}
+                  fullWidth
+                  size="small"
+                  placeholder="搜索项目... (Ctrl/Cmd + K)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery('')}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      borderRadius: 3,
+                      bgcolor: (theme) => alpha(theme.palette.background.paper, 0.8),
+                      backdropFilter: 'blur(20px)',
+                    },
+                  }}
+                />
+              </Box>
+            )}
+            
+            {!isSearching && (
+              <Tooltip title="搜索 (Ctrl/Cmd + K)">
+                <IconButton
+                  onClick={() => {
+                    setIsSearching(true)
+                    setTimeout(() => searchInputRef.current?.focus(), 100)
+                  }}
+                  sx={{
+                    borderRadius: 2,
+                    bgcolor: (theme) => alpha(theme.palette.background.paper, 0.8),
+                  }}
+                >
+                  <SearchIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            
             <motion.div variants={scaleVariants} whileHover="hover" whileTap="tap">
               <Button
                 variant="contained"
@@ -192,10 +295,22 @@ const ProjectListPage: React.FC = () => {
                 ]}
               />
             </Box>
+          ) : filteredProjects.length === 0 ? (
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <EmptyState
+                variant="no-results"
+                title="未找到匹配的项目"
+                description={`没有找到包含 "${searchQuery}" 的项目`}
+                action={{
+                  label: '清除搜索',
+                  onClick: () => setSearchQuery(''),
+                }}
+              />
+            </Box>
           ) : (
             <Box sx={{ flex: 1, overflow: 'auto' }}>
               <Grid2 container spacing={3}>
-                {projects.map((project) => (
+                {filteredProjects.map((project) => (
                   <Grid2 size={{ xs: 12, sm: 6, md: 4 }} key={project.id}>
                     <motion.div variants={itemVariants}>
                       <Paper

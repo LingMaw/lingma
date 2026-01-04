@@ -1,8 +1,8 @@
 /**
  * 危险操作确认对话框
- * 增强版本，带延迟确认和键盘防误触
+ * 增强版本，带延迟确认、键盘防误触和焦点管理
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -17,6 +17,7 @@ import {
 } from '@mui/material'
 import { Warning as WarningIcon } from '@mui/icons-material'
 import { motion } from 'framer-motion'
+import { useFocusManagement } from '@/frontend/core'
 
 export interface DangerConfirmDialogProps {
   open: boolean
@@ -48,6 +49,14 @@ export default function DangerConfirmDialog({
   const theme = useTheme()
   const [countdown, setCountdown] = useState(delaySeconds)
   const [canConfirm, setCanConfirm] = useState(false)
+  const cancelButtonRef = useRef<HTMLButtonElement>(null)
+
+  // 焦点管理
+  const { setContainerRef } = useFocusManagement(open, {
+    autoFocusOnOpen: true,
+    returnFocusOnClose: true,
+    focusSelector: 'button', // 自动聚焦到取消按钮
+  })
 
   useEffect(() => {
     if (open) {
@@ -84,6 +93,7 @@ export default function DangerConfirmDialog({
       fullWidth
       onKeyDown={handleKeyDown}
       PaperProps={{
+        ref: setContainerRef as any,
         sx: {
           borderRadius: 4,
           backdropFilter: 'blur(20px)',
@@ -172,6 +182,7 @@ export default function DangerConfirmDialog({
 
       <DialogActions sx={{ px: 3, pb: 3 }}>
         <Button
+          ref={cancelButtonRef}
           onClick={onClose}
           disabled={loading}
           variant="outlined"
