@@ -5,8 +5,8 @@ services:
     # 默认使用 NekroAI 官方镜像
     # 如果您 Fork 了本项目，请将下方镜像地址修改为您自己的 GitHub 用户名和仓库名
     # 例如: ghcr.io/your-username/nekro-vstack-template:latest
-    image: ghcr.io/nekroai/nekro-vstack-template:latest
-    container_name: nekro-vstack
+    image: ghcr.io/lingmaw/lingma:latest
+    container_name: lingma
     restart: unless-stopped
     ports:
       - "9871:9871"
