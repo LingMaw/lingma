@@ -2,7 +2,7 @@
  * 章节编辑器页面 - 完整功能版
  */
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -47,6 +47,10 @@ import { StreamProgressIndicator, EnhancedRequirementInput } from '@/frontend/sh
 
 import { chapterAPI } from '../api'
 import type { ChapterResponse } from '../types'
+import { useAutoSave } from '../hooks/useAutoSave'
+import { useTextStats } from '../hooks/useTextStats'
+import SaveStatusIndicator from '../components/SaveStatusIndicator'
+import EditorStatusBar from '../components/EditorStatusBar'
 
 export default function ChapterEditorPage() {
   const { projectId, chapterId } = useParams<{ projectId: string; chapterId: string }>()
@@ -58,9 +62,9 @@ export default function ChapterEditorPage() {
   const [content, setContent] = useState('')
   const [status, setStatus] = useState('draft')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [autoSaving, setAutoSaving] = useState(false)
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Textarea ref（用于字数统计中的选中监听）
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   
   // AI相关状态
   const [aiMenuAnchor, setAiMenuAnchor] = useState<null | HTMLElement>(null)
@@ -79,31 +83,35 @@ export default function ChapterEditorPage() {
   
   // 删除确认对话框
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  
-  // 字数统计
-  const wordCount = content.length
 
-  // 自动保存功能
-  useEffect(() => {
-    // 清除之前的计时器
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current)
-    }
+  // 自动保存逻辑（使用新的 Hook）
+  const handleSaveData = useCallback(async () => {
+    if (!chapterId) return
+    
+    await chapterAPI.updateChapter(Number(chapterId), {
+      title: title.trim(),
+      content: content,
+      status: status,
+    })
+  }, [chapterId, title, content, status])
 
-    // 设置新的自动保存计时器（2秒无操作后自动保存）
-    autoSaveTimerRef.current = setTimeout(() => {
-      if (chapter && (title !== chapter.title || content !== chapter.content || status !== chapter.status)) {
-        handleAutoSave()
-      }
-    }, 2000)
+  const autoSave = useAutoSave({
+    data: { title, content, status },
+    onSave: handleSaveData,
+    debounceMs: 300,
+    enabled: !!chapter,
+    isEqual: (a, b) => 
+      a.title === b.title && 
+      a.content === b.content && 
+      a.status === b.status,
+  })
 
-    // 清理函数
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current)
-      }
-    }
-  }, [title, content, status, chapter])
+  // 字数统计（使用新的 Hook）
+  const textStats = useTextStats({
+    content,
+    textareaRef,
+    targetChars: undefined, // 可以从 localStorage 读取
+  })
 
   useEffect(() => {
     if (chapterId) {
@@ -127,38 +135,8 @@ export default function ChapterEditorPage() {
   }
 
   const handleSave = async () => {
-    if (!chapterId) return
-
-    try {
-      setSaving(true)
-      await chapterAPI.updateChapter(Number(chapterId), {
-        title: title.trim(),
-        content: content,
-        status: status,
-      })
-      await loadChapter()
-    } catch (error) {
-      console.error('保存章节失败:', error)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleAutoSave = async () => {
-    if (!chapterId || autoSaving) return
-
-    try {
-      setAutoSaving(true)
-      await chapterAPI.updateChapter(Number(chapterId), {
-        title: title.trim(),
-        content: content,
-        status: status,
-      })
-    } catch (error) {
-      console.error('自动保存失败:', error)
-    } finally {
-      setAutoSaving(false)
-    }
+    await autoSave.save()
+    await loadChapter()
   }
 
   const handleDeleteClick = () => {
@@ -429,20 +407,14 @@ export default function ChapterEditorPage() {
       } else {
         setContent(aiContent)
       }
-      // AI生成完成后自动保存
-      setSaving(true)
-      await chapterAPI.updateChapter(Number(chapterId), {
-        title: title.trim(),
-        content: aiDialogTitle === 'AI续写' ? content + '\n\n' + aiContent : aiContent,
-        status: status,
-      })
-      await loadChapter()
-    } catch (error) {
-      console.error('应用AI内容失败:', error)
-    } finally {
-      setSaving(false)
+      
       setAiDialogOpen(false)
       setAiContent('')
+      
+      // AI生成完成后自动触发保存
+      // useAutoSave hook 会自动检测内容变化并保存
+    } catch (error) {
+      console.error('应用AI内容失败:', error)
     }
   }
 
@@ -492,6 +464,12 @@ export default function ChapterEditorPage() {
             {title || '未命名章节'}
           </Typography>
 
+          {/* 保存状态指示器 */}
+          <SaveStatusIndicator 
+            status={autoSave.status} 
+            metadata={autoSave.metadata}
+          />
+
           <FormControl sx={{ minWidth: 140 }}>
             <InputLabel size="small">章节状态</InputLabel>
             <Select
@@ -531,29 +509,10 @@ export default function ChapterEditorPage() {
             variant="contained"
             startIcon={<Save />}
             onClick={handleSave}
-            disabled={saving}
-            sx={{ borderRadius: 2, position: 'relative' }}
+            disabled={autoSave.status === 'saving'}
+            sx={{ borderRadius: 2 }}
           >
-            {saving ? '保存中...' : '保存'}
-            {autoSaving && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  bottom: 2,
-                  right: 2,
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  bgcolor: 'success.main',
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                  '@keyframes pulse': {
-                    '0%': { opacity: 1 },
-                    '50%': { opacity: 0.5 },
-                    '100%': { opacity: 1 },
-                  },
-                }}
-              />
-            )}
+            {autoSave.status === 'saving' ? '保存中...' : '保存'}
           </Button>
         </Stack>
       </Paper>
@@ -580,14 +539,9 @@ export default function ChapterEditorPage() {
                 onChange={(e) => setTitle(e.target.value)}
                 fullWidth
               />
-              {autoSaving && (
-                <Typography variant="caption" color="success.main" sx={{ pt: 1, whiteSpace: 'nowrap' }}>
-                  自动保存中...
-                </Typography>
-              )}
             </Stack>
 
-            <Box sx={{ position: 'relative' }}>
+            <Box sx={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
               <TextField
                 label="正文内容"
                 value={content}
@@ -595,6 +549,7 @@ export default function ChapterEditorPage() {
                 multiline
                 fullWidth
                 minRows={20}
+                inputRef={textareaRef}
                 InputProps={{
                   sx: {
                     alignItems: 'flex-start',
@@ -605,37 +560,13 @@ export default function ChapterEditorPage() {
                 }}
                 placeholder="在此输入章节内容..."
               />
-              {autoSaving && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 12,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    fontSize: '0.75rem',
-                    color: 'success.main',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: '50%',
-                      bgcolor: 'success.main',
-                      animation: 'pulse 1.5s ease-in-out infinite',
-                      '@keyframes pulse': {
-                        '0%': { opacity: 1 },
-                        '50%': { opacity: 0.5 },
-                        '100%': { opacity: 1 },
-                      },
-                    }}
-                  />
-                  自动保存
-                </Box>
-              )}
             </Box>
+            
+            {/* 编辑器底部状态栏 */}
+            <EditorStatusBar 
+              stats={textStats} 
+              onTargetChange={textStats.setTargetChars}
+            />
           </Paper>
         </Grid2>
 
@@ -660,7 +591,7 @@ export default function ChapterEditorPage() {
                       字数统计
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {wordCount.toLocaleString()}
+                      {textStats.totalChars.toLocaleString()}
                     </Typography>
                   </Box>
                   <Divider />
@@ -880,15 +811,6 @@ export default function ChapterEditorPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* 全局自动保存样式 */}
-      <style>{`
-        @keyframes pulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.5; }
-          100% { opacity: 1; }
-        }
-      `}</style>
 
       {/* 删除确认对话框 */}
       <Dialog
