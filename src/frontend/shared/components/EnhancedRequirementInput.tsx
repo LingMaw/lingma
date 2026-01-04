@@ -88,7 +88,7 @@ export default function EnhancedRequirementInput({
   onChange,
   disabled = false,
   scene,
-  minLength = 5,
+  minLength = 0,
   label = '需求或提示',
   storageKey,
   maxHistoryCount = 5,
@@ -113,7 +113,7 @@ export default function EnhancedRequirementInput({
 
   const errorMessage = useMemo(() => {
     const trimmed = value.trim()
-    if (trimmed.length > 0 && trimmed.length < minLength) {
+    if (minLength > 0 && trimmed.length > 0 && trimmed.length < minLength) {
       return `请输入至少${minLength}个字符的具体需求`
     }
     return ''

@@ -953,7 +953,6 @@ export default function ChapterEditorPage() {
               onChange={setAiRequirement}
               disabled={false}
               scene={aiPendingAction || 'generate'}
-              minLength={5}
               storageKey={`chapter_ai_requirement_${aiPendingAction}`}
               maxHistoryCount={5}
             />
@@ -974,7 +973,6 @@ export default function ChapterEditorPage() {
                 : handleAiCompressConfirm
             }
             variant="contained"
-            disabled={aiRequirement.trim().length > 0 && aiRequirement.trim().length < 5}
             sx={{ borderRadius: 2 }}
           >
             开始
