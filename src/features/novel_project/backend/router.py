@@ -25,6 +25,31 @@ from .services.ai_service import project_ai_service
 router = APIRouter()
 
 
+async def _enrich_project_response(project: NovelProject) -> NovelProjectResponse:
+    """
+    丰富项目响应数据，添加章节和角色数量统计
+    
+    Args:
+        project: 项目实例
+        
+    Returns:
+        NovelProjectResponse: 丰富后的项目响应数据
+    """
+    from src.features.chapter.backend.models import Chapter
+    from src.features.character.backend.models import Character
+    
+    chapter_count = await Chapter.filter(project_id=project.id).count()
+    character_count = await Character.filter(project_id=project.id).count()
+    
+    project_dict = {
+        **project.__dict__,
+        "chapter_count": chapter_count,
+        "character_count": character_count,
+    }
+    
+    return NovelProjectResponse(**project_dict)
+
+
 @router.post("/", response_model=NovelProjectResponse, summary="创建小说项目")
 async def create_novel_project(
     project_data: NovelProjectCreate,
@@ -57,11 +82,10 @@ async def create_novel_project(
         )
         
         logger.info(f"小说项目创建成功: {project.id} - {project.title}")
+        return await _enrich_project_response(project)
     except Exception as e:
         logger.error(f"创建小说项目失败: {e}")
         raise APIError(code="CREATE_FAILED", message=f"创建项目失败: {e!s}") from e
-    else:
-        return project
 
 
 @router.get("/", response_model=NovelProjectListResponse, summary="获取小说项目列表")
@@ -95,8 +119,11 @@ async def list_novel_projects(
     projects = await NovelProject.filter(**filters).offset(offset).limit(size).all()
     total = await NovelProject.filter(**filters).count()
     
+    # 统计每个项目的章节和角色数量
+    project_list = [await _enrich_project_response(project) for project in projects]
+    
     logger.info(f"获取到 {len(projects)} 个项目，总共 {total} 个")
-    return NovelProjectListResponse(total=total, items=projects)
+    return NovelProjectListResponse(total=total, items=project_list)
 
 
 @router.get("/{project_id}", response_model=NovelProjectResponse, summary="获取小说项目详情")
@@ -118,11 +145,10 @@ async def get_novel_project(
     
     try:
         project = await NovelProject.get(id=project_id, user_id=user_id)
+        return await _enrich_project_response(project)
     except DoesNotExist as e:
         logger.warning(f"小说项目不存在: {project_id}")
         raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404) from e
-    else:
-        return project
 
 
 @router.put("/{project_id}", response_model=NovelProjectResponse, summary="更新小说项目")
@@ -156,14 +182,13 @@ async def update_novel_project(
         # 保存更新
         await project.save()
         logger.info(f"小说项目更新成功: {project.id}")
+        return await _enrich_project_response(project)
     except DoesNotExist as e:
         logger.warning(f"小说项目不存在: {project_id}")
         raise APIError(code="NOT_FOUND", message="项目不存在", status_code=404) from e
     except Exception as e:
         logger.error(f"更新小说项目失败: {e}")
         raise APIError(code="UPDATE_FAILED", message=f"更新项目失败: {e!s}") from e
-    else:
-        return project
 
 
 @router.delete("/{project_id}", response_model=MessageResponse, summary="删除小说项目")
@@ -234,14 +259,13 @@ async def save_novel_content(
         # 保存更新
         await project.save()
         logger.info(f"小说内容保存成功: 项目 {project_id}，字数 {project.word_count}")
+        return await _enrich_project_response(project)
     except DoesNotExist as e:
         logger.warning(f"小说项目不存在或无权限: {project_id}")
         raise APIError(code="NOT_FOUND", message="项目不存在或无权限访问", status_code=404) from e
     except Exception as e:
         logger.error(f"保存小说内容失败: {e}")
         raise APIError(code="SAVE_FAILED", message=f"保存内容失败: {e!s}") from e
-    else:
-        return project
 
 
 @router.post("/{project_id}/ai-generate-stream", summary="AI流式生成项目内容")

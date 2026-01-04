@@ -20,6 +20,7 @@ class NovelProject(models.Model):
     # 添加小说内容字段
     content = fields.TextField(null=True, blank=True, description="小说内容")
     word_count = fields.IntField(default=0, description="字数统计")
+    target_word_count = fields.IntField(null=True, blank=True, description="目标字数")
     
     # 章节系统相关字段
     chapter_ids = fields.JSONField(default=list, description="章节ID列表")

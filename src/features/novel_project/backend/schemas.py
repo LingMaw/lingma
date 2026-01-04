@@ -17,6 +17,7 @@ class NovelProjectBase(BaseModel):
     status: Optional[str] = Field("draft", description="项目状态")
     content: Optional[str] = Field(None, description="小说内容")
     word_count: Optional[int] = Field(0, description="字数统计")
+    target_word_count: Optional[int] = Field(None, description="目标字数")
     use_chapter_system: Optional[bool] = Field(False, description="是否启用章节管理")
 
 
@@ -42,6 +43,8 @@ class NovelProjectResponse(NovelProjectBase):
     user_id: int
     created_at: datetime
     updated_at: datetime
+    chapter_count: Optional[int] = Field(0, description="章节数量")
+    character_count: Optional[int] = Field(0, description="角色数量")
 
     class Config:
         from_attributes = True
