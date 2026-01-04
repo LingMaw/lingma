@@ -107,13 +107,13 @@ jobs:
 
             - name: Zip Artifacts
               run: |
-                  Compress-Archive -Path dist/NekroVStack -DestinationPath NekroVStack-Windows-x64.zip
+                  Compress-Archive -Path dist/LingMa -DestinationPath LingMa-Windows-x64.zip
 
             - name: Upload Artifact
               uses: actions/upload-artifact@v4
               with:
                   name: windows-build
-                  path: NekroVStack-Windows-x64.zip
+                  path: LingMa-Windows-x64.zip
 
     # Job 3: Create Release
     release:
