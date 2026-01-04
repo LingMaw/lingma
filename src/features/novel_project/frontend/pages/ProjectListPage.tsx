@@ -13,7 +13,9 @@ import {
   Tooltip,
   Fab,
   useTheme,
-  alpha
+  alpha,
+  LinearProgress,
+  Stack,
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
@@ -23,7 +25,11 @@ import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import BookIcon from '@mui/icons-material/Book'
-import { DangerConfirmDialog } from '@/frontend/shared'
+import DescriptionIcon from '@mui/icons-material/Description'
+import PeopleIcon from '@mui/icons-material/People'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import { DangerConfirmDialog, EmptyState, SkeletonProjectList } from '@/frontend/shared'
 import { useNotificationStore } from '@/frontend/shared'
 import { useDocumentTitle } from '@/frontend/core'
 
@@ -100,6 +106,22 @@ const ProjectListPage: React.FC = () => {
     }
   }
 
+  // 相对时间
+  const getRelativeTime = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const seconds = Math.floor(diff / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+
+    if (days > 0) return `${days}天前`
+    if (hours > 0) return `${hours}小时前`
+    if (minutes > 0) return `${minutes}分钟前`
+    return '刚刚'
+  }
+
   return (
     <Box sx={{ height: '100%' }}>
       <motion.div
@@ -138,12 +160,37 @@ const ProjectListPage: React.FC = () => {
           </Box>
 
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-              <CircularProgress />
+            <Box sx={{ flex: 1, overflow: 'auto' }}>
+              <SkeletonProjectList />
             </Box>
           ) : error && projects.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
               <Alert severity="error">{error}</Alert>
+            </Box>
+          ) : projects.length === 0 ? (
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <EmptyState
+                variant="no-projects"
+                action={{
+                  label: '新建项目',
+                  onClick: () => navigate('/novel_projects/create'),
+                }}
+                suggestions={[
+                  {
+                    icon: <AutoAwesomeIcon />,
+                    text: '使用AI快速生成小说',
+                    onClick: () => navigate('/novel_generator'),
+                  },
+                  {
+                    icon: <BookIcon />,
+                    text: '从模板创建项目',
+                  },
+                  {
+                    icon: <DescriptionIcon />,
+                    text: '查看使用指南',
+                  },
+                ]}
+              />
             </Box>
           ) : (
             <Box sx={{ flex: 1, overflow: 'auto' }}>
@@ -162,15 +209,54 @@ const ProjectListPage: React.FC = () => {
                           backdropFilter: 'blur(20px)',
                           border: `1px solid ${theme.palette.divider}`,
                           borderRadius: 3,
+                          position: 'relative',
                           transition: 'all 0.3s ease',
+                          cursor: 'pointer',
                           '&:hover': {
                             transform: 'translateY(-4px)',
                             boxShadow: (theme) => `0 12px 30px ${alpha(theme.palette.common.black, 0.1)}`,
-                            cursor: 'pointer'
+                            '& .quick-actions': {
+                              opacity: 1,
+                              transform: 'translateY(0)',
+                            },
                           }
                         }}
                         onClick={() => navigate(`/novel_projects/${project.id}`)}
                       >
+                        {/* 类型/风格标签 */}
+                        {(project.genre || project.style) && (
+                          <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                            {project.genre && (
+                              <Chip
+                                label={project.genre}
+                                size="small"
+                                sx={{
+                                  height: 22,
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  borderRadius: '6px',
+                                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                  color: 'primary.main',
+                                }}
+                              />
+                            )}
+                            {project.style && (
+                              <Chip
+                                label={project.style}
+                                size="small"
+                                sx={{
+                                  height: 22,
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  borderRadius: '6px',
+                                  bgcolor: alpha(theme.palette.secondary.main, 0.1),
+                                  color: 'secondary.main',
+                                }}
+                              />
+                            )}
+                          </Stack>
+                        )}
+
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                           <Box
                             sx={{
@@ -187,12 +273,12 @@ const ProjectListPage: React.FC = () => {
                           >
                             <BookIcon sx={{ color: 'primary.main' }} />
                           </Box>
-                          <Box sx={{ flex: 1 }}>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography
                               variant="h6"
                               sx={{
                                 fontWeight: 700,
-                                mb: 1,
+                                mb: 0.5,
                                 lineHeight: 1.2,
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
@@ -208,10 +294,10 @@ const ProjectListPage: React.FC = () => {
                               color={getStatusColor(project.status) as any}
                               size="small"
                               sx={{
-                                height: 24,
+                                height: 20,
                                 borderRadius: '6px',
                                 fontWeight: 600,
-                                fontSize: '0.75rem'
+                                fontSize: '0.65rem',
                               }}
                             />
                           </Box>
@@ -226,92 +312,158 @@ const ProjectListPage: React.FC = () => {
                               flex: 1,
                               overflow: 'hidden',
                               display: '-webkit-box',
-                              WebkitLineClamp: 3,
+                              WebkitLineClamp: 2,
                               WebkitBoxOrient: 'vertical',
+                              lineHeight: 1.5,
                             }}
                           >
                             {project.description}
                           </Typography>
                         )}
 
+                        {/* 统计信息 */}
+                        <Stack
+                          direction="row"
+                          spacing={2}
+                          sx={{
+                            mb: 2,
+                            pt: 2,
+                            borderTop: `1px solid ${theme.palette.divider}`,
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            <Typography variant="caption" color="text.secondary">
+                              {project.word_count ? `${(project.word_count / 1000).toFixed(1)}k 字` : '0 字'}
+                            </Typography>
+                          </Box>
+                          {project.use_chapter_system && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <BookIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                              <Typography variant="caption" color="text.secondary">
+                                {project.chapter_count || 0} 章
+                              </Typography>
+                            </Box>
+                          )}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <PeopleIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            <Typography variant="caption" color="text.secondary">
+                              {project.character_count || 0} 人
+                            </Typography>
+                          </Box>
+                        </Stack>
+
+                        {/* 进度条 */}
+                        {project.target_word_count && (
+                          <Box sx={{ mb: 2 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                完成度
+                              </Typography>
+                              <Typography variant="caption" fontWeight={600} color="primary">
+                                {Math.min(100, Math.round((project.word_count || 0) / project.target_word_count * 100))}%
+                              </Typography>
+                            </Box>
+                            <LinearProgress
+                              variant="determinate"
+                              value={Math.min(100, (project.word_count || 0) / project.target_word_count * 100)}
+                              sx={{
+                                height: 6,
+                                borderRadius: 3,
+                                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                                '& .MuiLinearProgress-bar': {
+                                  borderRadius: 3,
+                                },
+                              }}
+                            />
+                          </Box>
+                        )}
+
+                        {/* 底部信息 */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
                           <Typography variant="caption" color="text.secondary">
-                            {new Date(project.created_at).toLocaleDateString()}
+                            {getRelativeTime(project.updated_at || project.created_at)}
                           </Typography>
-                          <Box>
-                            <Tooltip title="编辑">
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/novel_projects/${project.id}/edit`);
-                                }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="删除">
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteClick(project);
-                                }}
-                                disabled={deletingId === project.id}
-                              >
-                                {deletingId === project.id ? (
-                                  <CircularProgress size={20} />
-                                ) : (
-                                  <DeleteIcon fontSize="small" />
-                                )}
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
                         </Box>
+
+                        {/* 悬浮快捷操作 */}
+                        <Stack
+                          className="quick-actions"
+                          direction="row"
+                          spacing={1}
+                          sx={{
+                            position: 'absolute',
+                            top: 12,
+                            right: 12,
+                            opacity: 0,
+                            transform: 'translateY(-8px)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          <Tooltip title="查看">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/novel_projects/${project.id}`);
+                              }}
+                              sx={{
+                                bgcolor: alpha(theme.palette.background.paper, 0.9),
+                                '&:hover': {
+                                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                  color: 'primary.main',
+                                },
+                              }}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="编辑">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/novel_projects/${project.id}/edit`);
+                              }}
+                              sx={{
+                                bgcolor: alpha(theme.palette.background.paper, 0.9),
+                                '&:hover': {
+                                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                  color: 'primary.main',
+                                },
+                              }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="删除">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClick(project);
+                              }}
+                              disabled={deletingId === project.id}
+                              sx={{
+                                bgcolor: alpha(theme.palette.background.paper, 0.9),
+                                '&:hover': {
+                                  bgcolor: alpha(theme.palette.error.main, 0.1),
+                                  color: 'error.main',
+                                },
+                              }}
+                            >
+                              {deletingId === project.id ? (
+                                <CircularProgress size={16} />
+                              ) : (
+                                <DeleteIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
                       </Paper>
                     </motion.div>
                   </Grid2>
                 ))}
-
-                {projects.length === 0 && (
-                  <Grid2 size={12}>
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 5,
-                        textAlign: 'center',
-                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                        backdropFilter: 'blur(20px)',
-                        border: `1px solid ${theme.palette.divider}`,
-                        borderRadius: 3,
-                      }}
-                    >
-                      <BookIcon sx={{ fontSize: 64, color: 'action.disabled', mb: 2 }} />
-                      <Typography variant="h6" color="text.secondary" gutterBottom>
-                        暂无项目
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                        点击"新建项目"按钮创建您的第一个小说项目
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => navigate('/novel_projects/create')}
-                        sx={{
-                          borderRadius: 3,
-                          py: 1,
-                          px: 3,
-                          fontWeight: 600,
-                          background: (theme) =>
-                            `linear-gradient(135deg, ${theme.palette.primary.light} 0%, ${theme.palette.primary.main} 100%)`,
-                          boxShadow: (theme) => `0 4px 16px ${alpha(theme.palette.primary.main, 0.2)}`,
-                        }}
-                      >
-                        新建项目
-                      </Button>
-                    </Paper>
-                  </Grid2>
-                )}
               </Grid2>
             </Box>
           )}

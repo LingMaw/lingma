@@ -23,9 +23,10 @@ import {
   DialogContentText,
   DialogActions,
 } from '@mui/material'
-import { ArrowBack, Delete } from '@mui/icons-material'
+import { ArrowBack, Delete, AutoAwesome, EditNote } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { containerVariants, itemVariants } from '@/frontend/core/animation'
+import { EmptyState, SkeletonChapterList } from '@/frontend/shared'
 
 import { chapterAPI } from '../api'
 import type { ChapterListItem } from '../types'
@@ -113,7 +114,19 @@ export default function ChapterListPage() {
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography>加载中...</Typography>
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={() => navigate(`/novel_projects/${projectId}`)}
+            sx={{ borderRadius: 2 }}
+          >
+            返回
+          </Button>
+          <Typography variant="h4" sx={{ fontWeight: 600 }}>
+            章节列表
+          </Typography>
+        </Stack>
+        <SkeletonChapterList />
       </Box>
     )
   }
@@ -140,19 +153,29 @@ export default function ChapterListPage() {
       </Stack>
 
       {chapters.length === 0 ? (
-        <Paper
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            borderRadius: 3,
-            bgcolor: (theme) => alpha(theme.palette.background.paper, 0.6),
-            backdropFilter: 'blur(20px)',
+        <EmptyState
+          variant="no-chapters"
+          action={{
+            label: 'AI生成大纲',
+            icon: <AutoAwesome />,
+            onClick: () => navigate(`/novel_projects/${projectId}/outline`),
           }}
-        >
-          <Typography color="text.secondary">
-            还没有章节，请先在大纲中创建章节节点
-          </Typography>
-        </Paper>
+          secondaryAction={{
+            label: '手动创建章节',
+            icon: <EditNote />,
+            onClick: () => navigate(`/novel_projects/${projectId}/outline`),
+          }}
+          suggestions={[
+            {
+              icon: <AutoAwesome />,
+              text: '使用AI生成章节大纲，快速构建故事框架',
+            },
+            {
+              icon: <EditNote />,
+              text: '手动编写大纲，精细规划每个章节',
+            },
+          ]}
+        />
       ) : (
         <List component={motion.div} variants={containerVariants}>
           {chapters.map((chapter) => (
