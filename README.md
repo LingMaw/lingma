@@ -81,7 +81,6 @@ pnpm install
 
 ```bash
 mkdir -p data
-pnpm db:init
 pnpm db:init-db
 ```
 
@@ -115,7 +114,7 @@ src/
 │   ├── character/         # 角色管理
 │   ├── novel_project/     # 项目管理
 │   ├── novel_outline/     # 大纲管理
-│   ├── novel_generator/   # AI 生成器
+│   ├── novel_generator/   # 短篇小说生成器
 │   └── user/              # 用户认证
 │
 ├── backend/               # ⚙️ 后端核心
@@ -131,8 +130,6 @@ src/
 └── assets/                # 资源文件
     └── template/          # Jinja2 提示词模板
 ```
-
-**依赖规则**: `utils/ → core/ → shared/ → features/`
 
 ---
 
@@ -241,19 +238,6 @@ pnpm add -D <package>
 | Vite | 构建工具 |
 | pnpm | 包管理 |
 
----
-
-## 📚 文档中心
-
-| 文档 | 说明 |
-|------|------|
-| [快速开始](../docs/getting-started.md) | 5 分钟启动项目 |
-| [开发指南](../docs/development.md) | 如何开发新功能 |
-| [数据库迁移](../docs/database.md) | 数据库操作完整指南 |
-| [配置指南](../docs/configuration.md) | 环境变量和项目配置 |
-| [部署指南](../docs/deployment.md) | Docker 与 Windows 部署 |
-| [架构说明](../docs/architecture.md) | 设计理念和技术选型 |
-| [命令参考](../docs/commands.md) | 所有可用命令速查 |
 
 ---
 
