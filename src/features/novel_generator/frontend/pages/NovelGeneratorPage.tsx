@@ -36,6 +36,7 @@ import type { ShortStoryTemplate } from '@/features/novel_generator/frontend/typ
 import { useUserStore } from '@/frontend/shared/stores/user'
 import { useNavigate } from 'react-router-dom'
 import { useNotificationStore } from '@/frontend/shared'
+import { useDocumentTitle } from '@/frontend/core'
 
 const NovelGeneratorPage: React.FC = () => {
   const location = useLocation()
@@ -47,6 +48,11 @@ const NovelGeneratorPage: React.FC = () => {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
   const abortControllerRef = useRef<AbortController | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  // 动态标题
+  useDocumentTitle({ 
+    title: state.isStreaming ? 'AI创作中' : 'AI小说生成器' 
+  })
 
   // 初始化
   useEffect(() => {

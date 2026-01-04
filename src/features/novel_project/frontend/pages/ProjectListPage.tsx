@@ -25,6 +25,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import BookIcon from '@mui/icons-material/Book'
 import { DangerConfirmDialog } from '@/frontend/shared'
 import { useNotificationStore } from '@/frontend/shared'
+import { useDocumentTitle } from '@/frontend/core'
 
 const ProjectListPage: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([])
@@ -37,6 +38,9 @@ const ProjectListPage: React.FC = () => {
   const navigate = useNavigate()
   const theme = useTheme()
   const { showNotification } = useNotificationStore()
+
+  // 动态标题
+  useDocumentTitle({ title: '小说项目' })
 
   useEffect(() => {
     fetchProjects()

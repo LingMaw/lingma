@@ -36,6 +36,8 @@ import {
   Tooltip,
   Divider,
   alpha,
+  Popover,
+  Paper,
 } from '@mui/material'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -44,6 +46,7 @@ import { useUserStore } from '@/frontend/shared/stores/user'
 import { useThemeStore, type ColorPalette } from '@/frontend/shared/stores/theme'
 import { pageVariants } from '@/frontend/core/animation'
 import { systemColors } from '@/frontend/core/theme/macOS'
+import { Breadcrumb, useBreadcrumb } from '@/frontend/shared'
 
 const drawerWidth = 260
 const collapsedDrawerWidth = 72
@@ -65,6 +68,7 @@ export default function MainLayout() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(true)
+  const [hoverAnchor, setHoverAnchor] = useState<HTMLElement | null>(null)
 
   // Stores
   const { user, logout } = useUserStore()
@@ -72,6 +76,9 @@ export default function MainLayout() {
 
   // Menu state
   const [anchorElPalette, setAnchorElPalette] = useState<null | HTMLElement>(null)
+
+  // Breadcrumb
+  const breadcrumbs = useBreadcrumb()
 
   const handleLogout = () => {
     logout()
@@ -84,6 +91,16 @@ export default function MainLayout() {
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed)
+  }
+
+  const handleMouseEnter = (event: React.MouseEvent<HTMLElement>) => {
+    if (isCollapsed && !isMobile) {
+      setHoverAnchor(event.currentTarget)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    setHoverAnchor(null)
   }
 
   const drawerContent = (
@@ -115,55 +132,62 @@ export default function MainLayout() {
           const isSelected = location.pathname === item.path
           return (
             <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                selected={isSelected}
-                onClick={() => {
-                  navigate(item.path)
-                  if (isMobile) handleDrawerToggle()
-                }}
-                sx={{
-                  borderRadius: '8px',
-                  minHeight: 44,
-                  justifyContent: isCollapsed ? 'center' : 'initial',
-                  px: isCollapsed ? 1.5 : 2.5,
-                  '&.Mui-selected': {
-                    bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    color: 'primary.main',
-                    '&:hover': {
-                      bgcolor: alpha(theme.palette.primary.main, 0.15),
-                    },
-                    '& .MuiListItemIcon-root': {
-                      color: 'primary.main',
-                    },
-                  },
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.text.primary, 0.04),
-                  },
-                }}
+              <Tooltip 
+                title={isCollapsed ? item.text : ''} 
+                placement="right"
+                arrow
               >
-                <ListItemIcon
+                <ListItemButton
+                  selected={isSelected}
+                  onClick={() => {
+                    navigate(item.path)
+                    if (isMobile) handleDrawerToggle()
+                  }}
                   sx={{
-                    minWidth: 0,
-                    mr: isCollapsed ? 0 : 1.5,
-                    justifyContent: 'center',
-                    color: isSelected ? 'primary.main' : 'text.secondary',
-                    '& .MuiSvgIcon-root': {
-                      fontSize: isCollapsed ? '1.75rem' : '1.5rem',
+                    borderRadius: '8px',
+                    minHeight: 48,
+                    minWidth: 48,
+                    justifyContent: isCollapsed ? 'center' : 'initial',
+                    px: isCollapsed ? 1.5 : 2.5,
+                    '&.Mui-selected': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.1),
+                      color: 'primary.main',
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.primary.main, 0.15),
+                      },
+                      '& .MuiListItemIcon-root': {
+                        color: 'primary.main',
+                      },
+                    },
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.text.primary, 0.04),
                     },
                   }}
                 >
-                  {item.icon}
-                </ListItemIcon>
-                {!isCollapsed && (
-                  <ListItemText
-                    primary={item.text}
-                    primaryTypographyProps={{
-                      fontWeight: isSelected ? 600 : 500,
-                      fontSize: '0.95rem',
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      mr: isCollapsed ? 0 : 1.5,
+                      justifyContent: 'center',
+                      color: isSelected ? 'primary.main' : 'text.secondary',
+                      '& .MuiSvgIcon-root': {
+                        fontSize: isCollapsed ? '2rem' : '1.5rem',
+                      },
                     }}
-                  />
-                )}
-              </ListItemButton>
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  {!isCollapsed && (
+                    <ListItemText
+                      primary={item.text}
+                      primaryTypographyProps={{
+                        fontWeight: isSelected ? 600 : 500,
+                        fontSize: '0.95rem',
+                      }}
+                    />
+                  )}
+                </ListItemButton>
+              </Tooltip>
             </ListItem>
           )
         })}
@@ -172,41 +196,48 @@ export default function MainLayout() {
       {/* Collapse Button */}
       <Box sx={{ px: isCollapsed ? 1 : 2, pb: 1 }}>
         <ListItem disablePadding>
-          <ListItemButton
-            onClick={toggleCollapse}
-            sx={{
-              borderRadius: '8px',
-              minHeight: 44,
-              justifyContent: isCollapsed ? 'center' : 'initial',
-              px: isCollapsed ? 1.5 : 2.5,
-              color: 'text.secondary',
-              '&:hover': {
-                bgcolor: alpha(theme.palette.text.primary, 0.04),
-              },
-            }}
+          <Tooltip 
+            title={isCollapsed ? '展开菜单' : ''} 
+            placement="right"
+            arrow
           >
-            <ListItemIcon
+            <ListItemButton
+              onClick={toggleCollapse}
               sx={{
-                minWidth: 0,
-                mr: isCollapsed ? 0 : 1.5,
-                justifyContent: 'center',
-                '& .MuiSvgIcon-root': {
-                  fontSize: isCollapsed ? '1.75rem' : '1.5rem',
+                borderRadius: '8px',
+                minHeight: 48,
+                minWidth: 48,
+                justifyContent: isCollapsed ? 'center' : 'initial',
+                px: isCollapsed ? 1.5 : 2.5,
+                color: 'text.secondary',
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.text.primary, 0.04),
                 },
               }}
             >
-              {isCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-            </ListItemIcon>
-            {!isCollapsed && (
-              <ListItemText
-                primary={isCollapsed ? '' : '收起菜单'}
-                primaryTypographyProps={{
-                  fontWeight: 500,
-                  fontSize: '0.95rem',
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  mr: isCollapsed ? 0 : 1.5,
+                  justifyContent: 'center',
+                  '& .MuiSvgIcon-root': {
+                    fontSize: isCollapsed ? '2rem' : '1.5rem',
+                  },
                 }}
-              />
-            )}
-          </ListItemButton>
+              >
+                {isCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+              </ListItemIcon>
+              {!isCollapsed && (
+                <ListItemText
+                  primary={isCollapsed ? '' : '收起菜单'}
+                  primaryTypographyProps={{
+                    fontWeight: 500,
+                    fontSize: '0.95rem',
+                  }}
+                />
+              )}
+            </ListItemButton>
+          </Tooltip>
         </ListItem>
       </Box>
 
@@ -304,7 +335,7 @@ export default function MainLayout() {
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
             <IconButton
               color="inherit"
               aria-label="open drawer"
@@ -314,9 +345,16 @@ export default function MainLayout() {
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6" noWrap component="div" fontWeight={600}>
-              {menuItems.find(i => i.path === location.pathname)?.text || '控制台'}
-            </Typography>
+            
+            {breadcrumbs ? (
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Breadcrumb items={breadcrumbs} />
+              </Box>
+            ) : (
+              <Typography variant="h6" noWrap component="div" fontWeight={600}>
+                {menuItems.find(i => i.path === location.pathname)?.text || '控制台'}
+              </Typography>
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -437,9 +475,104 @@ export default function MainLayout() {
             },
           }}
           open
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         >
           {drawerContent}
         </Drawer>
+
+        {/* 悬浮展开菜单 */}
+        <Popover
+          open={Boolean(hoverAnchor)}
+          anchorEl={hoverAnchor}
+          onClose={handleMouseLeave}
+          anchorOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'left',
+          }}
+          disableRestoreFocus
+          sx={{
+            pointerEvents: 'none',
+            '& .MuiPopover-paper': {
+              pointerEvents: 'auto',
+              ml: 0.5,
+              borderRadius: 2,
+              boxShadow: theme.shadows[8],
+              backgroundColor: alpha(theme.palette.background.paper, 0.95),
+              backdropFilter: 'blur(20px)',
+              minWidth: drawerWidth - collapsedDrawerWidth,
+            },
+          }}
+          TransitionProps={{
+            timeout: 200,
+          }}
+        >
+          <Paper 
+            elevation={0}
+            onMouseEnter={() => setHoverAnchor(hoverAnchor)}
+            onMouseLeave={handleMouseLeave}
+            sx={{
+              backgroundColor: 'transparent',
+              p: 1,
+            }}
+          >
+            <List sx={{ py: 0 }}>
+              {menuItems.map(item => {
+                const isSelected = location.pathname === item.path
+                return (
+                  <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+                    <ListItemButton
+                      selected={isSelected}
+                      onClick={() => {
+                        navigate(item.path)
+                        handleMouseLeave()
+                      }}
+                      sx={{
+                        borderRadius: '8px',
+                        minHeight: 44,
+                        px: 2,
+                        '&.Mui-selected': {
+                          bgcolor: alpha(theme.palette.primary.main, 0.1),
+                          color: 'primary.main',
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.15),
+                          },
+                          '& .MuiListItemIcon-root': {
+                            color: 'primary.main',
+                          },
+                        },
+                        '&:hover': {
+                          bgcolor: alpha(theme.palette.text.primary, 0.04),
+                        },
+                      }}
+                    >
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 0,
+                          mr: 1.5,
+                          color: isSelected ? 'primary.main' : 'text.secondary',
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.text}
+                        primaryTypographyProps={{
+                          fontWeight: isSelected ? 600 : 500,
+                          fontSize: '0.9rem',
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                )
+              })}
+            </List>
+          </Paper>
+        </Popover>
       </Box>
 
       <Box

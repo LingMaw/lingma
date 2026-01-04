@@ -6,3 +6,5 @@ export { default as GlobalNotificationProvider } from './GlobalNotificationProvi
 export { default as DangerConfirmDialog } from './DangerConfirmDialog'
 export { default as StreamProgressIndicator } from './StreamProgressIndicator'
 export { default as EnhancedRequirementInput } from './EnhancedRequirementInput'
+export { default as Breadcrumb } from './Breadcrumb'
+export type { BreadcrumbItem, BreadcrumbProps } from './Breadcrumb'

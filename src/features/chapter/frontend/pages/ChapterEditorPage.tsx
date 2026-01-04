@@ -2,7 +2,7 @@
  * 章节编辑器页面 - 完整功能版
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -43,7 +43,9 @@ import {
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { pageVariants } from '@/frontend/core/animation'
-import { StreamProgressIndicator, EnhancedRequirementInput } from '@/frontend/shared'
+import { StreamProgressIndicator, EnhancedRequirementInput, useBreadcrumb } from '@/frontend/shared'
+import { useDocumentTitle } from '@/frontend/core'
+import { novelProjectAPI } from '@/features/novel_project/frontend'
 
 import { chapterAPI } from '../api'
 import type { ChapterResponse } from '../types'
@@ -58,6 +60,7 @@ export default function ChapterEditorPage() {
   
   // 基础状态
   const [chapter, setChapter] = useState<ChapterResponse | null>(null)
+  const [project, setProject] = useState<{ title: string } | null>(null)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [status, setStatus] = useState('draft')
@@ -83,6 +86,25 @@ export default function ChapterEditorPage() {
   
   // 删除确认对话框
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+
+  // 面包屑导航
+  const breadcrumbs = useMemo(() => {
+    if (!project || !chapter) return undefined
+    return [
+      { label: '小说项目', path: '/novel_project' },
+      { label: `《${project.title}》`, path: `/novel_projects/${projectId}` },
+      { label: '章节列表', path: `/novel_projects/${projectId}/chapters` },
+      { label: chapter.title, isCurrent: true },
+    ]
+  }, [project, chapter, projectId])
+
+  useBreadcrumb({ items: breadcrumbs })
+
+  // 动态标题
+  useDocumentTitle({
+    title: '编辑',
+    prefix: chapter && project ? `${chapter.title} - 《${project.title}》` : undefined,
+  })
 
   // 自动保存逻辑（使用新的 Hook）
   const handleSaveData = useCallback(async () => {
@@ -117,7 +139,19 @@ export default function ChapterEditorPage() {
     if (chapterId) {
       loadChapter()
     }
-  }, [chapterId])
+    if (projectId) {
+      loadProject()
+    }
+  }, [chapterId, projectId])
+
+  const loadProject = async () => {
+    try {
+      const data = await novelProjectAPI.getProject(Number(projectId))
+      setProject({ title: data.title })
+    } catch (error) {
+      console.error('加载项目失败:', error)
+    }
+  }
 
   const loadChapter = async () => {
     try {

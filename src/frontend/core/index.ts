@@ -12,3 +12,7 @@ export type * from './types'
 // 路由
 export { default as router } from './router'
 
+// Hooks
+export { useDocumentTitle } from './hooks/useDocumentTitle'
+export type { UseDocumentTitleOptions } from './hooks/useDocumentTitle'
+

@@ -25,6 +25,7 @@ import BookIcon from '@mui/icons-material/Book'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import PersonIcon from '@mui/icons-material/Person'
+import { useDocumentTitle } from '@/frontend/core'
 
 const ProjectViewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -37,6 +38,9 @@ const ProjectViewPage: React.FC = () => {
 
   const navigate = useNavigate()
   const theme = useTheme()
+
+  // 动态标题
+  useDocumentTitle({ title: project ? `《${project.title}》` : '项目详情' })
 
   useEffect(() => {
     if (id) {

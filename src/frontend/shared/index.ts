@@ -7,6 +7,7 @@ export * from './components'
 
 // Hooks
 export { useNotification } from './hooks/useNotification'
+export { useBreadcrumb } from './hooks/useBreadcrumb'
 
 // 布局
 export { default as MainLayout } from './layouts/MainLayout'
