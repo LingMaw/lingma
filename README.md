@@ -70,7 +70,10 @@
 
 ```bash
 # 安装 uv (Python 包管理器)
+Linux/MacOS:
 curl -LsSf https://astral.sh/uv/install.sh | sh
+Windows:
+pip install uv
 
 # 安装 Python 和 Node.js 依赖
 uv sync
