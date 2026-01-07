@@ -60,6 +60,17 @@
 
 ## 🚀 快速开始
 
+### Windows用户快速开始
+
+如果您使用Windows系统，可以直接下载使用打包好的应用：
+
+[Windows x64 下载链接](https://github.com/LingMaw/lingma/releases/download/v1.0.1/LingMa-Windows-x64.zip)
+
+> 注意：Windows下无法使用一键启动命令，需要单独启动后端服务 
+ ```bash
+ uv run uvicorn src.backend.main:app --reload --host 0.0.0.0 --port 9871
+ ```
+
 ### 前置要求
 
 - Python 3.11+
@@ -70,9 +81,9 @@
 
 ```bash
 # 安装 uv (Python 包管理器)
-Linux/MacOS:
+# Linux/MacOS:
 curl -LsSf https://astral.sh/uv/install.sh | sh
-Windows:
+# Windows:
 pip install uv
 
 # 安装 Python 和 Node.js 依赖
@@ -90,12 +101,15 @@ pnpm db:init-db
 ### 3. 启动开发服务器
 
 ```bash
-# 一键启动前后端 (推荐)
+# 一键启动前后端 (推荐,仅Linux可用)
 pnpm dev:all
 
 # 或分别启动
-# pnpm dev:backend
-# pnpm dev:frontend
+pnpm dev:backend # (仅Linux可用)
+pnpm dev:frontend
+
+# Windows启动后端
+ uv run uvicorn src.backend.main:app --reload --host 0.0.0.0 --port 9871
 ```
 
 ### 4. 访问应用
@@ -174,6 +188,12 @@ pnpm dev:all          # 同时启动前后端 ⭐
 pnpm dev:backend      # 仅后端
 pnpm dev:frontend     # 仅前端
 ```
+
+> ⚠️ 注意：在Windows环境下，如果遇到一键启动问题，可以单独启动后端服务：
+> 
+> ```bash
+> uv run uvicorn src.backend.main:app --reload --host 0.0.0.0 --port 9871
+> ```
 
 ### 数据库
 
